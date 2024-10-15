@@ -1,0 +1,83 @@
+/* Dashboard.css */
+
+.dashboard {
+    display: flex;
+    height: 100vh; /* Adjust height as needed */
+  }
+  
+  .sidebar {
+    width: 20%; /* Adjust width as needed */
+    background-color: #333; /* Sidebar background color */
+    color: white; /* Sidebar text color */
+  }
+  
+  .content {
+    flex: 1;
+    background-color: #f4f4f4;
+    padding: 20px;
+  }
+  
+  .section {
+    margin-bottom: 20px;
+  }
+  
+  .section h2 {
+    margin-bottom: 10px;
+  }
+  
+  .logoSection {
+    display: flex;
+    margin-bottom: 20px;
+  }
+  
+  .currentLogo,
+  .newLogo {
+    flex: 1;
+  }
+  
+  .currentLogo img {
+    max-width: 100%;
+    height: auto;
+    border-radius: 5px;
+  }
+  
+  .newLogo input[type="file"] {
+    margin-top: 10px;
+  }
+  
+  textarea {
+    width: 100%;
+    padding: 10px;
+    border: 1px solid #ddd;
+    border-radius: 5px;
+    resize: vertical;
+  }
+  
+
+
+/* New styles for sidebar menu */
+.sidebarMenu {
+    list-style-type: none;
+    padding: 0;
+  }
+  
+  .sidebarMenu li {
+    display: flex;
+    align-items: center;
+    padding: 10px;
+    cursor: pointer;
+  }
+  
+  .sidebarMenu li:hover {
+    background-color: #444; /* Hover background color */
+  }
+  
+  .sidebarMenu li span {
+    margin-left: 10px;
+  }
+
+  .cards {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 20px;
+  }

@@ -1,0 +1,191 @@
+/* Dashboard.css */
+
+.dashboard {
+  display: flex;
+  background-color: aqua;
+  height: 100vh; /* Adjust height as needed */
+}
+
+.sidebar {
+  width: 20%; /* Adjust width as needed */
+  background-color: #333; /* Sidebar background color */
+  color: white; /* Sidebar text color */
+}
+
+.content {
+  flex: 1; /* Take remaining space */
+  background-color: #f4f4f4; /* Content area background color */
+  padding: 1rem;
+}
+
+.headBar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.headBar button {
+  padding: 8px;
+  border: none;
+  border-radius: 5px;
+  cursor: pointer;
+  width: 150px;
+  margin-right: 1rem;
+  transition: background-color 0.3s ease; /* Smooth transition for background color */
+}
+
+.headBar button:last-child {
+  margin-right: 0;
+}
+
+/* New styles for sidebar menu */
+.sidebarMenu {
+  list-style-type: none;
+  padding: 0;
+}
+
+.sidebarMenu li {
+  display: flex;
+  align-items: center;
+  padding: 10px;
+  cursor: pointer;
+}
+
+.sidebarMenu li:hover {
+  background-color: #444; /* Hover background color */
+}
+
+.sidebarMenu li span {
+  margin-left: 10px;
+}
+
+.itemList {
+  display: flex;
+  flex-direction: column;
+}
+
+.itemEntry {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1rem;
+  border: 1px solid #ddd;
+  border-radius: 1rem;
+  margin-bottom: 1rem;
+  background-color: #fff; /* White background for items */
+}
+
+.itemDetails {
+  flex: 1;
+}
+
+.itemSnippet {
+  width: 100px; /* Adjust width as needed */
+}
+
+.itemSnippet img {
+  width: 100%;
+  height: auto;
+  border-radius: 5px;
+}
+
+.itemActions {
+  display: flex;
+  margin-right: 1rem;
+}
+
+.itemActions button {
+  margin-left: 5px;
+  background-color: #ccc;
+  border: none;
+  border-radius: 5px;
+  padding: 5px 10px;
+  cursor: pointer;
+  transition: background-color 0.3s ease; /* Smooth transition for background color */
+}
+
+/* Hover styles for buttons */
+.itemActions button:hover {
+  background-color: blue; /* Change background color on hover */
+  color: white; /* Change text color on hover */
+}
+
+.searchBar {
+  display: flex;
+  margin-bottom: 20px;
+}
+
+.searchBar input {
+  flex: 1;
+  padding: 8px;
+  border: 1px solid #ddd;
+  border-radius: 5px;
+}
+
+.multipleSelect {
+  width: 100%;
+  padding: 8px;
+  border: 1px solid #ddd;
+  border-radius: 5px;
+  background-color: #fff;
+}
+
+.richTextEditor {
+  width: 100%;
+  padding: 8px;
+  border: 1px solid #ddd;
+  border-radius: 5px;
+  background-color: #f4f4f4;
+}
+
+.formGroup {
+  margin-right: 20px;
+}
+
+/* Additional styles for the ordering section */
+.orderingSection {
+  margin-top: 20px;
+}
+
+.orderingItem {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background-color: #fff;
+  border: 1px solid #ddd;
+  border-radius: 5px;
+  padding: 10px;
+  margin-bottom: 10px;
+  transition: box-shadow 0.3s ease;
+}
+
+.orderingItem:hover {
+  box-shadow: 0 0 10px rgba(0, 0, 0, 0.1); /* Add shadow on hover */
+}
+
+.orderingItem span {
+  flex-grow: 1;
+  margin-right: 10px;
+}
+
+.orderingItem button {
+  max-width:200px ;
+  padding: 5px 10px;
+  margin-left: 5px;
+  background-color: #007bff;
+  color: white;
+  border: none;
+  border-radius: 5px;
+  cursor: pointer;
+  transition: background-color 0.3s ease;
+}
+
+.orderingItem button:hover {
+  background-color: #0056b3; /* Darker blue on hover */
+}
+
+.indented {
+  background: white !important;
+  color: black !important;
+  border: 1px solid black !important;
+}

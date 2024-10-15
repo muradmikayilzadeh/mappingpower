@@ -1,0 +1,81 @@
+/* Dashboard.css */
+
+.dashboard {
+    display: flex;
+    height: 100vh; /* Adjust height as needed */
+  }
+  
+  .sidebar {
+    width: 20%; /* Adjust width as needed */
+    background-color: #333; /* Sidebar background color */
+    color: white; /* Sidebar text color */
+  }
+  
+  .content {
+    flex: 1; /* Take remaining space */
+    background-color: #f4f4f4; /* Content area background color */
+    padding:1rem;
+  }
+  
+
+
+/* New styles for sidebar menu */
+.sidebarMenu {
+    list-style-type: none;
+    padding: 0;
+  }
+  
+  .sidebarMenu li {
+    display: flex;
+    align-items: center;
+    padding: 10px;
+    cursor: pointer;
+  }
+  
+  .sidebarMenu li:hover {
+    background-color: #444; /* Hover background color */
+  }
+  
+  .sidebarMenu li span {
+    margin-left: 10px;
+  }
+
+  .cards {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 20px;
+  }
+  
+  .card {
+    width: 45%;
+    background-color: #fff;
+    border: 1px solid #ddd;
+    border-radius: 5px;
+    padding: 10px;
+    display: flex;
+    align-items: center;
+  }
+  
+  .card span {
+    margin-left: 10px;
+  }
+  
+  .graphs {
+    display: flex;
+    justify-content: space-between;
+  }
+  
+  .graphPlaceholder {
+    width: 45%;
+    height: 200px; /* Adjust height as needed */
+    background-color: #ddd; /* Placeholder background color */
+    border:1px solid black;
+    padding:0.5rem;
+    border-radius: 5px;
+    margin-left:1rem;
+  }
+
+  .graphPlaceholder:first-child{
+    margin-left:0;
+  }
+  

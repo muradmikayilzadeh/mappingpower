@@ -1,0 +1,302 @@
+/* Dashboard.css */
+
+.dashboard {
+  display: flex;
+  background-color: aqua;
+  height: 100vh; /* Adjust height as needed */
+}
+
+.sidebar {
+  width: 20%; /* Adjust width as needed */
+  background-color: #333; /* Sidebar background color */
+  color: white; /* Sidebar text color */
+}
+
+.content {
+  flex: 1; /* Take remaining space */
+  background-color: #f4f4f4; /* Content area background color */
+  padding:1rem;
+}
+
+
+.headBar{
+display: flex;
+justify-content: space-between;
+align-items: center;
+}
+
+.headBar button{
+padding: 8px;
+border: none;
+border-radius: 5px;
+cursor: pointer;
+width: 150px;
+margin-right: 1rem;
+transition: background-color 0.3s ease; /* Smooth transition for background color */
+}
+
+.headBar button:last-child{
+margin-right: 0;
+}
+
+
+/* New styles for sidebar menu */
+.sidebarMenu {
+  list-style-type: none;
+  padding: 0;
+}
+
+.sidebarMenu li {
+  display: flex;
+  align-items: center;
+  padding: 10px;
+  cursor: pointer;
+}
+
+.sidebarMenu li:hover {
+  background-color: #444; /* Hover background color */
+}
+
+.sidebarMenu li span {
+  margin-left: 10px;
+}
+
+
+.itemList {
+  display: flex;
+  flex-direction: column;
+}
+
+.itemEntry {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1rem;
+  border:1px solid #ddd;
+  border-radius: 1rem;
+  margin-bottom: 1rem;
+}
+
+.itemDetails {
+  flex: 1;
+}
+
+form{
+  border:none;
+  width: 100%;
+  margin-left:-50px;
+}
+
+.itemSnippet {
+  width: 100px; /* Adjust width as needed */
+}
+
+.itemSnippet img {
+  width: 100%;
+  height: auto;
+  border-radius: 5px;
+}
+
+.itemActions {
+  display: flex;
+  margin-right: 1rem;
+}
+
+.itemActions button {
+  margin-left: 5px;
+  background-color: #ccc;
+  border: none;
+  cursor: pointer;
+  transition: background-color 0.3s ease; /* Smooth transition for background color */
+}
+
+/* Hover styles for buttons */
+.itemActions button:hover {
+background-color: blue; /* Change background color on hover */
+}
+
+
+.searchBar {
+display: flex;
+margin-bottom: 20px;
+}
+
+.searchBar input {
+flex: 1;
+padding: 8px;
+border: 1px solid #ddd;
+border-radius: 5px;
+}
+
+.multipleSelect{
+  width: 100%;
+  padding: 8px;
+  border-radius: 5px;
+}
+
+.richTextEditor{
+  width: 100%;
+  padding: 8px;
+  border: 1px solid #ddd;
+  border-radius: 5px;
+  background-color: #f4f4f4;
+}
+
+.formGroup{
+  margin-right: 20px;
+}
+
+.mapOptionsArea{
+  display: flex;
+  flex-direction: row;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+  /* gap between elements */
+  gap:20px;
+}
+
+.mapOptionsArea .option{
+  flex:1;
+  background:#007bff;
+  color:white;
+  text-align: center;
+  padding:3rem;
+}
+
+.mapOptionsArea .option h3{
+}
+
+.mapOptionsArea .option:hover{
+  background:blue;
+  cursor:pointer;
+}
+
+.optionSelected {
+  background: white !important;
+  color: #007bff;
+  border: 1px solid #007bff;
+}
+
+.optionSelected h1, .optionSelected h3 {
+  color: #007bff;
+}
+
+/* New styles for vector point input sections */
+.vectorPoint {
+  margin-bottom: 20px;
+  padding: 20px;
+  border: 1px solid #ddd;
+  border-radius: 10px;
+  background-color: #fff;
+}
+
+.vectorPoint fieldset {
+  border: 1px solid #ddd;
+  border-radius: 10px;
+  padding: 20px;
+  background-color: #f9f9f9;
+}
+
+.vectorPoint legend {
+  padding: 0 10px;
+  font-weight: bold;
+  color: #007bff;
+}
+
+.vectorPoint input[type="text"],
+.vectorPoint input[type="number"],
+.vectorPoint textarea,
+.vectorPoint input[type="file"] {
+  width: 100%;
+  padding: 10px;
+  margin-bottom: 10px;
+  border: 1px solid #ddd;
+  border-radius: 5px;
+  background-color: #f4f4f4;
+}
+
+.vectorPoint input[type="file"] {
+  background-color: #fff;
+}
+
+.vectorPoint img {
+  width: 100%;
+  height: auto;
+  border-radius: 5px;
+  margin-top: 10px;
+}
+
+.vectorForm label {
+  display: block;
+  font-weight: bold;
+  margin-bottom: 5px;
+}
+
+.vectorForm input[type="number"] {
+  width: 60px;
+}
+
+.vectorForm input[type="text"] {
+  width: 150px;
+}
+
+.vectorForm input[type="file"] {
+  width: auto;
+}
+
+/* Make vector point form fields more compact and visually appealing */
+.vectorPoint fieldset {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.vectorPoint input,
+.vectorPoint textarea {
+  flex: 1 1 100%;
+}
+
+.vectorPoint input[type="number"],
+.vectorPoint input[type="file"] {
+  flex: 1 1 auto;
+  max-width: calc(50% - 10px);
+}
+
+.vectorPoint textarea {
+  flex: 1 1 100%;
+  height: 100px;
+}
+
+.vectorPoint .previewImage {
+  flex: 1 1 100%;
+  margin-top: 10px;
+}
+
+/* Add some spacing between fields */
+.vectorForm input, .vectorForm textarea {
+  margin-bottom: 10px;
+}
+
+.vectorPoint .optionSelected {
+  background-color: #f0f8ff;
+  border-color: #007bff;
+}
+
+.vectorPoint .optionSelected legend {
+  color: #007bff;
+}
+
+.richTextEditor {
+  width: 100%;
+  margin-bottom: 10px;
+}
+
+.vectorPoint {
+  width: 100%;
+}
+
+.vectorForm {
+  width: 100%;
+}
+

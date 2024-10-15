@@ -1,0 +1,80 @@
+.basemapsTitle{
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    font-size: 1.1em;
+    font-weight: bold;
+    color: rgb(88, 89, 91);
+    text-transform: lowercase;
+    cursor: pointer;
+}
+
+.basemaps .basemapsTitle img{
+    width: 1.2em;
+    margin: -0.1em 0px 0px 0.75em;
+}
+
+.basemapsOptions{
+    display: flex;
+    flex-direction: column;
+    margin-top: 0.5em;
+    margin-bottom: 0.5em;
+}
+
+.option{
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-direction: row;
+}
+
+.checkBox{
+    width: auto;
+    padding:0px;
+    margin:0px;
+}
+
+.optionDetails{
+    display: flex;
+    flex-direction: row;
+    align-items: center; /* Ensure items are centered */
+    color: rgb(68,68,68);
+}
+
+
+.optionControls{
+    display: flex;
+    flex-direction: row;
+    align-items: center; /* Ensure items are centered */
+}
+
+.slider{
+    width:6rem;
+}
+
+.optionInfo{
+    border-radius: 100%;
+    border:1px solid gray;
+    width:1.2rem;
+    height:1.2rem;
+    text-align: center;
+    line-height: 1rem;
+    padding: 0.1rem;
+    color:gray;
+    margin-left:0.35rem;
+}
+
+.leftPaddingMD{
+    padding-left: 0.3rem;
+}
+
+.grayTextItalic{
+    color:rgb(102, 102, 102);
+    font-style: italic;
+    line-height: 1.25;
+    font-size: 0.9rem;
+}
+
+.grayText{
+    color:rgb(136, 136, 136);
+}

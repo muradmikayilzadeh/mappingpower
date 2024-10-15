@@ -1,0 +1,29 @@
+.navbar{
+    display:flex;
+    flex-direction: row;
+    justify-content: space-between;
+    box-shadow: rgba(0, 0, 0, 0.1) 0px 0px 10px;
+    padding:0.75em 0.75em 0.5em !important;
+}
+
+.navbar .logoSection{
+    display:flex;
+    flex:2;
+    justify-content: flex-start;
+    align-items: center;
+}
+
+.navbar .itemsSection{
+    flex:1;
+    display:flex;
+    align-items: center;
+    justify-content: flex-end;
+}
+
+.navbar .itemsSection ul{
+    flex:1;
+    list-style: none;
+    display: flex;
+    flex-direction: row;
+    justify-content: space-between;
+}
