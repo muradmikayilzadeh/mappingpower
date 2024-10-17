@@ -34,6 +34,7 @@ export default function Map({ selectedMaps, mapStyle, selectedNarrative, activeC
 
   const updateMaps = (maps) => {
     const existingSources = map.current.getStyle().sources;
+
     Object.keys(existingSources).forEach((sourceId) => {
       if (
         (sourceId.startsWith('aerial-source-') && !maps.some(map => `aerial-source-${map.id}` === sourceId)) ||
@@ -48,7 +49,12 @@ export default function Map({ selectedMaps, mapStyle, selectedNarrative, activeC
     });
 
     maps.forEach((mapDetails) => {
+      console.log(mapDetails);
       if (mapDetails.image_bounds_coords && Array.isArray(mapDetails.image_bounds_coords)) {
+        console.log(mapDetails);
+
+        // generate alphanumeric id for each map
+        mapDetails.id = Math.random().toString(36).substring(7);
         const coordinates = mapDetails.image_bounds_coords.map(coord => coord.split(',').map(Number));
         const sourceId = `aerial-source-${mapDetails.id}`;
         const layerId = `overlay-${mapDetails.id}`;
