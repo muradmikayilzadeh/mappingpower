@@ -9,7 +9,6 @@ import { app, db } from '../../../firebase';
 import Editor from 'react-simple-wysiwyg';
 
 const SettingsPage = () => {
-
   const navigate = useNavigate();
 
   const [settingsData, setSettingsData] = useState({
@@ -18,10 +17,12 @@ const SettingsPage = () => {
     introduction: '',
     bibliography: '',
     credits: '',
-    feedback: ''
+    feedback: '',
+    geolocation: [0, 0], // Ensure geolocation is initialized with a default array
+    mapZoom: 10 // Default zoom value
   });
 
-  const [logoFile, setLogoFile] = useState(null); // State to store the selected logo file
+  const [logoFile, setLogoFile] = useState(null);
 
   useEffect(() => {
     const fetchSettings = async () => {
@@ -29,7 +30,13 @@ const SettingsPage = () => {
         const docRef = doc(db, "settings", "settingsData");
         const docSnap = await getDoc(docRef);
         if (docSnap.exists()) {
-          setSettingsData(docSnap.data());
+          const fetchedData = docSnap.data();
+          setSettingsData({
+            ...settingsData,
+            ...fetchedData,
+            geolocation: fetchedData.geolocation || [0, 0], // Fallback to default geolocation
+            mapZoom: fetchedData.mapZoom || 10 // Fallback to default zoom value
+          });
         } else {
           console.log("No such document!");
         }
@@ -43,62 +50,59 @@ const SettingsPage = () => {
 
   const handleLogoUpload = (event) => {
     const file = event.target.files[0];
-    setLogoFile(file); // Store the selected logo file
-    const reader = new FileReader();
-    reader.onload = () => {
-      setSettingsData(prevState => ({
-        ...prevState,
-        logo: reader.result // Update logo preview with base64 encoded image
-      }));
-    };
-    reader.readAsDataURL(file);
+    if (file) {
+      setLogoFile(file);
+      const reader = new FileReader();
+      reader.onload = () => {
+        setSettingsData(prevState => ({
+          ...prevState,
+          logo: reader.result
+        }));
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const uploadLogoAndSaveData = async () => {
+    if (logoFile) {
+      try {
+        const logoPath = `/logos/${logoFile.name}`;
+        const storage = getStorage(app);
+        const storageRef = ref(storage, logoPath);
+
+        const uploadTask = uploadBytesResumable(storageRef, logoFile);
+
+        await new Promise((resolve, reject) => {
+          uploadTask.on('state_changed',
+            null,
+            (error) => reject(error),
+            resolve
+          );
+        });
+
+        const downloadURL = await getDownloadURL(uploadTask.snapshot.ref);
+        return downloadURL;
+      } catch (error) {
+        console.error("Error uploading logo:", error);
+        throw error;
+      }
+    }
+    return null;
   };
 
   const saveChanges = async (e) => {
     e.preventDefault();
-    
+
     try {
-      if (logoFile) {
-        // Upload the logo to the bucket and save the URL to the settings.logo
-        const logoPath = `/logos/${logoFile.name}`;
-        const storage = getStorage(app);
-        const storageRef = ref(storage, logoPath);
-        const uploadTask = uploadBytesResumable(storageRef, logoFile);
-    
-        uploadTask.on('state_changed',
-          (snapshot) => {
-            // Observe state change events such as progress, pause, and resume
-            // Get task progress, including the number of bytes uploaded and the total number of bytes to be uploaded
-            const progress = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
-            console.log('Upload is ' + progress + '% done');
-            switch (snapshot.state) {
-              case 'paused':
-                console.log('Upload is paused');
-                break;
-              case 'running':
-                console.log('Upload is running');
-                break;
-            }
-          },
-          (error) => {
-            // Handle unsuccessful uploads
-            console.error(error);
-          },
-          () => {
-            // Handle successful uploads on complete
-            getDownloadURL(uploadTask.snapshot.ref).then((downloadURL) => {
-              console.log('File available at', downloadURL);
-              setSettingsData(prevState => ({
-                ...prevState,
-                logo: downloadURL
-              }));
-            });
-          }
-        );
-      }
+      const newLogoURL = await uploadLogoAndSaveData();
+
+      const updatedData = {
+        ...settingsData,
+        ...(newLogoURL && { logo: newLogoURL })
+      };
 
       const docRef = doc(db, "settings", "settingsData");
-      await setDoc(docRef, settingsData);
+      await setDoc(docRef, updatedData);
       console.log("Document successfully written!");
       alert("Changes saved successfully!");
     } catch (e) {
@@ -110,6 +114,15 @@ const SettingsPage = () => {
     setSettingsData(prevState => ({
       ...prevState,
       [name]: value
+    }));
+  };
+
+  const handleGeolocationChange = (index, value) => {
+    const updatedGeolocation = [...settingsData.geolocation];
+    updatedGeolocation[index] = parseFloat(value) || 0; // Fallback to 0 if the input is invalid
+    setSettingsData(prevState => ({
+      ...prevState,
+      geolocation: updatedGeolocation
     }));
   };
 
@@ -153,6 +166,35 @@ const SettingsPage = () => {
           />
         </div>
         <div className={styles.section}>
+          <h2>Geolocation</h2>
+          <div>
+            <label>Latitude:</label>
+            <input
+              type="number"
+              value={settingsData.geolocation[0] || 0}
+              onChange={(e) => handleGeolocationChange(0, e.target.value)}
+            />
+          </div>
+          <div>
+            <label>Longitude:</label>
+            <input
+              type="number"
+              value={settingsData.geolocation[1] || 0}
+              onChange={(e) => handleGeolocationChange(1, e.target.value)}
+            />
+          </div>
+        </div>
+        <div className={styles.section}>
+          <h2>Map Zoom</h2>
+          <input
+            type="number"
+            min="1"
+            max="20"
+            value={settingsData.mapZoom}
+            onChange={(e) => handleChange('mapZoom', parseInt(e.target.value, 10) || 10)}
+          />
+        </div>
+        <div className={styles.section}>
           <h2>Introduction</h2>
           <Editor
             value={settingsData.introduction}
@@ -180,11 +222,9 @@ const SettingsPage = () => {
             onChange={(e) => handleChange('feedback', e.target.value)}
           />
         </div>
-        
         <div>
           <button onClick={saveChanges}>Save Changes</button>
         </div>
-      
       </div>
     </div>
   );

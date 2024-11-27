@@ -1,7 +1,7 @@
 import * as maptilersdk from '@maptiler/sdk';
 import React, { useState } from 'react';
-import { doc, getDoc } from 'firebase/firestore'; // Import Firestore functions
-import { db } from '../../firebase'; // Ensure your Firebase configuration is imported
+import { doc, getDoc } from 'firebase/firestore';
+import { db } from '../../firebase';
 import Navbar from "../../components/Navbar";
 import Controller from '../../components/Controller';
 import Basemaps from '../../components/BaseMaps';
@@ -14,7 +14,8 @@ const MainPage = () => {
   const [selectedMaps, setSelectedMaps] = useState([]);
   const [mapStyle, setMapStyle] = useState(maptilersdk.MapStyle.BASIC.LIGHT);
   const [selectedNarrative, setSelectedNarrative] = useState(null);
-  const [activeChapter, setActiveChapter] = useState(null); // New state for active chapter
+  const [activeChapter, setActiveChapter] = useState(null);
+  const [updateOpacity, setUpdateOpacity] = useState(() => () => {}); // Initialize as a no-op function
 
   const fetchContent = async (field) => {
     try {
@@ -34,13 +35,27 @@ const MainPage = () => {
       console.error("Error getting document:", e);
     }
   };
+
+  const handleMapSelect = (maps) => {
+    // Debounce state updates using requestAnimationFrame or similar techniques
+    requestAnimationFrame(() => setSelectedMaps(maps));
+  };
   
+  const handleOpacityChange = (mapId, opacity) => {
+    setSelectedMaps((prevMaps) =>
+      prevMaps.map((map) =>
+        map.id === mapId ? { ...map, opacity } : map
+      )
+    );
+  };
+  
+
   const handleNarrativeSelect = (narrative) => {
     setSelectedNarrative(narrative);
   };
 
   const handleActiveChapterChange = (chapterName) => {
-    setActiveChapter(chapterName); // Update the active chapter
+    setActiveChapter(chapterName);
   };
 
   const handleLinkClick = (field) => {
@@ -62,18 +77,20 @@ const MainPage = () => {
       </div>
 
       <Map 
-        selectedMaps={selectedMaps} 
-        mapStyle={mapStyle} 
-        selectedNarrative={selectedNarrative} 
-        activeChapter={activeChapter} // Pass active chapter to Map component
+        selectedMaps={selectedMaps}
+        mapStyle={mapStyle}
+        selectedNarrative={selectedNarrative}
+        activeChapter={activeChapter}
+        onUpdateOpacity={setUpdateOpacity} // Pass setter to retrieve updateOpacity function
       />
 
       <div className={styles.mapController}>
-        <Controller 
-          onMapSelect={setSelectedMaps} 
-          onInfoClick={handleInfoClick} 
-          onNarrativeSelect={handleNarrativeSelect} 
-          onActiveChapterChange={handleActiveChapterChange} // Pass the active chapter handler
+        <Controller
+          onMapSelect={handleMapSelect}
+          onNarrativeSelect={handleNarrativeSelect}
+          onInfoClick={handleInfoClick}
+          onActiveChapterChange={handleActiveChapterChange}
+          onUpdateOpacity={handleOpacityChange}
         />
       </div>
 

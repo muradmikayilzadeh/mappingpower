@@ -25,11 +25,28 @@ const fetchMapData = async (sourceMapId) => {
   }
 };
 
-export default function Map({ selectedMaps, mapStyle, selectedNarrative, activeChapter }) { 
+const fetchSettingsData = async () => {
+  try {
+    const docRef = doc(db, "settings", "settingsData");
+    const docSnap = await getDoc(docRef);
+    if (docSnap.exists()) {
+      return docSnap.data();
+    } else {
+      console.error("No such document!");
+      return null;
+    }
+  } catch (error) {
+    console.error("Error fetching settings data:", error);
+    return null;
+  }
+};
+
+export default function Map({ selectedMaps, mapStyle, selectedNarrative, activeChapter, onUpdateOpacity }) { 
   const mapContainer = useRef(null);
   const map = useRef(null);
-  const sanFrancisco = { lng: -122.4194, lat: 37.7749 };
-  const [zoom] = useState(10);
+ 
+  const [sanFrancisco, setSanFrancisco] = useState({ lng: -122.6928532463798, lat: 45.51385188841452 });
+  const [zoom, setZoom] = useState(11);
   maptilersdk.config.apiKey = 'llr35dKpffrGaP9ECLL8';
 
   const updateMaps = (maps) => {
@@ -50,6 +67,10 @@ export default function Map({ selectedMaps, mapStyle, selectedNarrative, activeC
 
     maps.forEach((mapDetails) => {
       console.log(mapDetails);
+
+      const { id, image_bounds_coords, raster_image, opacity = 1, vector_points } = mapDetails;
+
+  
       if (mapDetails.image_bounds_coords && Array.isArray(mapDetails.image_bounds_coords)) {
         console.log(mapDetails);
 
@@ -62,6 +83,9 @@ export default function Map({ selectedMaps, mapStyle, selectedNarrative, activeC
         if (map.current.getSource(sourceId)) {
           map.current.removeLayer(layerId);
           map.current.removeSource(sourceId);
+
+          // if (map.current.getLayer(layerId)) {
+          // }
         }
 
         map.current.addSource(sourceId, {
@@ -74,10 +98,9 @@ export default function Map({ selectedMaps, mapStyle, selectedNarrative, activeC
           id: layerId,
           source: sourceId,
           type: 'raster',
-          paint: {
-            'raster-opacity': mapDetails.opacity !== undefined ? mapDetails.opacity : 1
-          }
         });
+
+
       } else if (mapDetails.vector_points && Array.isArray(mapDetails.vector_points)) {
         const sourceId = `vector-source-${mapDetails.id}`;
         const layerId = `vector-layer-${mapDetails.id}`;
@@ -134,15 +157,24 @@ export default function Map({ selectedMaps, mapStyle, selectedNarrative, activeC
           const coordinates = e.features[0].geometry.coordinates;
 
           // Create a popup
-          new maptilersdk.Popup()
+          new maptilersdk.Popup({ maxWidth: "400px", closeButton: true })
             .setLngLat(coordinates)
             .setHTML(`
-              <div style="text-align: center;">
-                <img src="${image}" alt="Marker Image" style="width: 100px; height: auto;" />
-                <p>${caption}</p>
+              <div style="text-align: center; width: 100%; box-sizing: border-box; position: relative;">
+                <img src="${image}" alt="Marker Image" style="width: 100%; height: auto; border-radius: 5px;" />
+                <p style="margin-top: 10px; font-size: 14px; color: #333;">${caption}</p>
               </div>
             `)
             .addTo(map.current);
+
+          // Add global CSS for the close button
+          const style = document.createElement('style');
+          style.innerHTML = `
+            .maplibregl-popup-close-button {
+              width: auto !important;
+            }
+          `;
+          document.head.appendChild(style);
         });
       } else {
         console.warn(`Skipping map with id ${mapDetails.id} due to missing or invalid data.`);
@@ -150,6 +182,33 @@ export default function Map({ selectedMaps, mapStyle, selectedNarrative, activeC
     });
   };
 
+  const updateOpacity = (mapId, opacity) => {
+    if (!map.current) return;
+  
+    // Handle raster layer opacity
+    const sourceId = `aerial-source-${mapId}`;
+    const layerId = `overlay-${mapId}`;
+  
+    if (map.current.getSource(sourceId) && map.current.getLayer(layerId)) {
+      map.current.setPaintProperty(layerId, 'raster-opacity', opacity);
+    }
+  
+    // Handle vector layer opacity
+    const vectorSourceId = `vector-source-${mapId}`;
+    const vectorLayerId = `vector-layer-${mapId}`;
+  
+    if (map.current.getSource(vectorSourceId) && map.current.getLayer(vectorLayerId)) {
+      map.current.setPaintProperty(vectorLayerId, 'icon-opacity', opacity);
+    }
+  };
+  
+  useEffect(() => {
+    if (selectedMaps.length > 0) {
+      selectedMaps.forEach(({ id, opacity }) => updateOpacity(id, opacity || 1));
+    }
+  }, [selectedMaps]);
+  
+  
   // Function to handle updating the map based on the selected narrative and chapter
   const updateMapWithNarrative = async (narrative, chapter) => {
     if (!map.current || !narrative || !chapter) return;
@@ -259,11 +318,33 @@ export default function Map({ selectedMaps, mapStyle, selectedNarrative, activeC
   };
 
   useEffect(() => {
+    const fetchInitialSettings = async () => {
+      const settings = await fetchSettingsData();
+      if (settings) {
+        const { geolocation, mapZoom } = settings;
+        if (geolocation && geolocation.length === 2 && mapZoom !== undefined) {
+          setSanFrancisco({ lng: geolocation[1], lat: geolocation[0] });
+          setZoom(mapZoom);
+        }
+      }
+    };
+
+    fetchInitialSettings();
+  }, []);
+
+  useEffect(() => {
     if (selectedNarrative && activeChapter && selectedNarrative.chapters[activeChapter]) {
       const chapter = selectedNarrative.chapters[activeChapter];
       updateMapWithNarrative(selectedNarrative, chapter); // Fetch and update map with chapter data
     }
   }, [activeChapter, selectedNarrative]); // Update map whenever activeChapter or selectedNarrative changes
+
+  useEffect(() => {
+    if (onUpdateOpacity) {
+      onUpdateOpacity(updateOpacity); // Pass the updateOpacity function to the parent
+    }
+  }, [onUpdateOpacity]);
+  
 
   useEffect(() => {
     if (!mapContainer.current) return;
@@ -295,6 +376,7 @@ export default function Map({ selectedMaps, mapStyle, selectedNarrative, activeC
 
         if (selectedMaps.length > 0) {
           updateMaps(selectedMaps);
+          updateOpacity(map.id, map.opacity);
         }
       });
     };

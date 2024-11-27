@@ -1,10 +1,10 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { collection, doc, getDocs, getDoc } from 'firebase/firestore';
-import { db } from '../../firebase'; // Ensure this path is correct based on your project structure
+import { db } from '../../firebase';
 import styles from './style.module.css';
 import miniMap from '../../images/miniMap.png';
 
-function Controller({ onMapSelect, onInfoClick, onNarrativeSelect,onActiveChapterChange }) {
+function Controller({ onMapSelect, onInfoClick, onNarrativeSelect, onActiveChapterChange, onUpdateOpacity }) {
   const [chapters, setChapters] = useState([]);
   const [checkedMaps, setCheckedMaps] = useState({});
   const [sliderValues, setSliderValues] = useState({});
@@ -16,12 +16,13 @@ function Controller({ onMapSelect, onInfoClick, onNarrativeSelect,onActiveChapte
   useEffect(() => {
     const fetchChaptersAndNarratives = async () => {
       try {
-        // Fetch maps and eras (maps section)
         const erasSnapshot = await getDocs(collection(db, 'eras'));
-        const eras = erasSnapshot.docs.map(doc => ({
-          id: doc.id,
-          ...doc.data()
-        }));
+        const eras = erasSnapshot.docs
+          .map(doc => ({
+            id: doc.id,
+            ...doc.data(),
+          }))
+          .sort((a, b) => a.order - b.order); // Sort by the "order" field in increasing order
 
         const mapsCollection = collection(db, 'maps');
         const mapGroupsCollection = collection(db, 'map_groups');
@@ -32,32 +33,33 @@ function Controller({ onMapSelect, onInfoClick, onNarrativeSelect,onActiveChapte
           return docSnap.exists() ? { id: docSnap.id, ...docSnap.data() } : null;
         };
 
-        const chaptersData = await Promise.all(eras.map(async era => {
-          const maps = await Promise.all(era.maps.map(mapId => fetchDetails(mapId, mapsCollection)));
-          const mapGroups = await Promise.all(era.map_groups.map(mapGroupId => fetchDetails(mapGroupId, mapGroupsCollection)));
+        const chaptersData = await Promise.all(
+          eras.map(async era => {
+            const maps = await Promise.all(era.maps.map(mapId => fetchDetails(mapId, mapsCollection)));
+            const mapGroups = await Promise.all(era.map_groups.map(mapGroupId => fetchDetails(mapGroupId, mapGroupsCollection)));
 
-          return {
-            title: era.title,
-            date: era.years,
-            description: era.description,
-            maps: maps.filter(map => map !== null),
-            mapGroups: mapGroups.filter(mapGroup => mapGroup !== null),
-            indented: era.indented || []
-          };
-        }));
+            return {
+              title: era.title,
+              date: era.years,
+              description: era.description,
+              maps: maps.filter(map => map !== null),
+              mapGroups: mapGroups.filter(mapGroup => mapGroup !== null),
+              indented: era.indented || [],
+            };
+          })
+        );
 
         setChapters(chaptersData);
 
-        // Fetch narratives section
         const narrativesSnapshot = await getDocs(collection(db, 'narratives'));
         const narrativesData = narrativesSnapshot.docs.map(doc => ({
           id: doc.id,
-          ...doc.data()
+          ...doc.data(),
         }));
 
         setNarratives(narrativesData);
       } catch (error) {
-        console.error("Error fetching data:", error);
+        console.error('Error fetching data:', error);
       }
     };
 
@@ -74,61 +76,71 @@ function Controller({ onMapSelect, onInfoClick, onNarrativeSelect,onActiveChapte
           const newCheckedMaps = { ...prev, [mapId]: checked ? mapDetails : null };
           const filteredMaps = Object.values(newCheckedMaps).filter(Boolean).map(map => ({
             ...map,
-            opacity: sliderValues[map.id] ? sliderValues[map.id] / 100 : 1, // Normalize slider value to opacity (0-1)
+            opacity: sliderValues[map.id] ? sliderValues[map.id] / 100 : 1,
           }));
-          onMapSelect(filteredMaps); // Pass the updated list of checked maps to the parent component
+          onMapSelect(filteredMaps);
           return newCheckedMaps;
         });
       } else {
         console.log(`No such document with ID: ${mapId}`);
       }
     } catch (error) {
-      console.error("Error fetching map details:", error);
+      console.error('Error fetching map details:', error);
     }
   };
 
   const handleSliderChange = (mapId, value) => {
-    const normalizedValue = value / 100; // Convert slider value to opacity scale (0-1)
-
-    setSliderValues(prev => ({ ...prev, [mapId]: value }));
-
-    setCheckedMaps(prev => {
-      const newCheckedMaps = { ...prev };
-      if (newCheckedMaps[mapId]) {
-        newCheckedMaps[mapId] = {
-          ...newCheckedMaps[mapId],
-          opacity: normalizedValue,
-        };
-      }
-      const updatedMaps = Object.values(newCheckedMaps).filter(Boolean);
-      onMapSelect(updatedMaps);
-      return newCheckedMaps;
+    const normalizedValue = value / 100;
+  
+    setSliderValues((prevSliderValues) => {
+      const updatedSliderValues = { ...prevSliderValues, [mapId]: value };
+  
+      setCheckedMaps((prevCheckedMaps) => {
+        const updatedCheckedMaps = { ...prevCheckedMaps };
+        if (updatedCheckedMaps[mapId]) {
+          updatedCheckedMaps[mapId] = {
+            ...updatedCheckedMaps[mapId],
+            opacity: normalizedValue,
+          };
+        }
+  
+        // Only call `onUpdateOpacity` in response to slider change
+        if (typeof onUpdateOpacity === 'function') {
+          onUpdateOpacity(mapId, normalizedValue);
+        }
+  
+        onMapSelect(Object.values(updatedCheckedMaps).filter(Boolean));
+        return updatedCheckedMaps;
+      });
+  
+      return updatedSliderValues;
     });
   };
+  
+  
+  
+  
 
-  const handleInfoClick = (description) => {
+  const handleInfoClick = description => {
     onInfoClick(description);
   };
 
-  const handleNarrativeSelect = (narrative) => {
+  const handleNarrativeSelect = narrative => {
     setSelectedNarrative(narrative);
     onNarrativeSelect(narrative);
   };
 
-  // console.log(selectedNarrative);
-
-  // Use IntersectionObserver to track visible sections
   useEffect(() => {
     const observerOptions = {
       root: narrativeRef.current,
-      threshold: 1, // Consider the section visible if 70% of it is in view
+      threshold: 1,
     };
 
-    const observer = new IntersectionObserver((entries) => {
+    const observer = new IntersectionObserver(entries => {
       entries.forEach(entry => {
         if (entry.isIntersecting) {
-          const visibleChapterId = entry.target.id; 
-          onActiveChapterChange(visibleChapterId); // Call onActiveChapterChange with chapter name
+          const visibleChapterId = entry.target.id;
+          onActiveChapterChange(visibleChapterId);
         }
       });
     }, observerOptions);
@@ -160,7 +172,11 @@ function Controller({ onMapSelect, onInfoClick, onNarrativeSelect,onActiveChapte
       {view === 'maps' && (
         <div className={styles.sectionInfo}>
           <div className={styles.textArea}>
-            <p>Historical maps and plans are organized chronologically. Use the slider bars to compare different plans. Many maps are accompanied by pin layers that contain ground-level views of how the city looked, or might have looked.</p>
+            <p>
+              Historical maps and plans are organized chronologically. Use the slider bars to compare different plans.
+              Many maps are accompanied by pin layers that contain ground-level views of how the city looked, or might
+              have looked.
+            </p>
           </div>
           <div className={styles.miniMap}>
             <img src={miniMap} alt="Mini Map" />
@@ -178,7 +194,10 @@ function Controller({ onMapSelect, onInfoClick, onNarrativeSelect,onActiveChapte
                     <div className={`${styles.chapterDate} ${styles.grayText}`}>{chapter.date}</div>
                     <div className={`${styles.chapterTitle} ${styles.leftPaddingMD}`}>{chapter.title}</div>
                   </div>
-                  <div className={`${styles.chapterDescription} ${styles.grayTextItalic}`} dangerouslySetInnerHTML={{ __html: chapter.description }} />
+                  <div
+                    className={`${styles.chapterDescription} ${styles.grayTextItalic}`}
+                    dangerouslySetInnerHTML={{ __html: chapter.description }}
+                  />
                 </div>
                 <div className={styles.chapterMaps}>
                   <div className={styles.mapList}>
@@ -186,9 +205,9 @@ function Controller({ onMapSelect, onInfoClick, onNarrativeSelect,onActiveChapte
                       <div className={styles.map} key={index}>
                         <div className={styles.mapDetails}>
                           <input
-                            type='checkbox'
+                            type="checkbox"
                             className={`${styles.checkBox} ${chapter.indented.includes(map.id) ? styles.indentedText : ''}`}
-                            onChange={(e) => handleCheckboxChange(map.id, e.target.checked)}
+                            onChange={e => handleCheckboxChange(map.id, e.target.checked)}
                           />
                           <span className={`${styles.grayText} ${styles.leftPaddingMD}`}>{map.date}</span>
                           <span className={`${styles.mapDetailTitle} ${styles.leftPaddingMD}`}>{map.title}</span>
@@ -201,34 +220,12 @@ function Controller({ onMapSelect, onInfoClick, onNarrativeSelect,onActiveChapte
                               max="100"
                               value={sliderValues[map.id] || 100}
                               className={styles.slider}
-                              onChange={(e) => handleSliderChange(map.id, parseInt(e.target.value, 10))}
+                              onChange={e => handleSliderChange(map.id, parseInt(e.target.value, 10))}
                             />
                           )}
-                          <i className={styles.mapInfo} onClick={() => handleInfoClick(map.description)}>𝒊</i>
-                        </div>
-                      </div>
-                    ))}
-                    {chapter.mapGroups.map((mapGroup, index) => (
-                      <div className={styles.map} key={index}>
-                        <div className={styles.mapDetails}>
-                          <input
-                            type='checkbox'
-                            className={styles.checkBox}
-                            onChange={(e) => handleCheckboxChange(mapGroup.id, e.target.checked)}
-                          />
-                          <span className={`${styles.grayText} ${styles.leftPaddingMD}`}>{mapGroup.date}</span>
-                          <span className={`${styles.mapDetailTitle} ${styles.leftPaddingMD} ${chapter.indented.includes(mapGroup.id) ? styles.indentedText : ''}`}>{mapGroup.title}</span>
-                        </div>
-                        <div className={styles.mapControls}>
-                          <input
-                            type="range"
-                            min="0"
-                            max="100"
-                            value={sliderValues[mapGroup.id] || 100}
-                            className={styles.slider}
-                            onChange={(e) => handleSliderChange(mapGroup.id, parseInt(e.target.value, 10))}
-                          />
-                          <i className={styles.mapInfo} onClick={() => handleInfoClick(mapGroup.description)}>𝒊</i>
+                          <i className={styles.mapInfo} onClick={() => handleInfoClick(map.description)}>
+                            𝒊
+                          </i>
                         </div>
                       </div>
                     ))}
@@ -248,7 +245,10 @@ function Controller({ onMapSelect, onInfoClick, onNarrativeSelect,onActiveChapte
               {narratives.map((narrative, index) => (
                 <li key={narrative.id} className={styles.narrativeItem} onClick={() => handleNarrativeSelect(narrative)}>
                   <div className={styles.narrativeTitle}>{narrative.title}</div>
-                  <div className={styles.narrativeDescription} dangerouslySetInnerHTML={{ __html: narrative.description }} />
+                  <div
+                    className={styles.narrativeDescription}
+                    dangerouslySetInnerHTML={{ __html: narrative.description }}
+                  />
                 </li>
               ))}
             </ul>
@@ -259,9 +259,8 @@ function Controller({ onMapSelect, onInfoClick, onNarrativeSelect,onActiveChapte
         </div>
       )}
 
-{view === 'narratives' && selectedNarrative && (
+      {view === 'narratives' && selectedNarrative && (
         <div className={styles.sectionContent} ref={narrativeRef}>
-          {/* Display narrative chapters */}
           {selectedNarrative.chapters ? (
             Object.entries(selectedNarrative.chapters).map(([chapterId, chapter], index) => (
               <section key={chapterId} id={chapterId} className={styles.chapterSection}>
@@ -273,9 +272,8 @@ function Controller({ onMapSelect, onInfoClick, onNarrativeSelect,onActiveChapte
           )}
         </div>
       )}
-</div>
-);
-
+    </div>
+  );
 }
 
 export default Controller;

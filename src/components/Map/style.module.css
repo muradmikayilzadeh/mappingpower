@@ -64,3 +64,8 @@
 .modalClose:hover {
   background-color: #0056b3;
 }
+
+
+.maplibregl-popup-close-button {
+  width: auto;
+}

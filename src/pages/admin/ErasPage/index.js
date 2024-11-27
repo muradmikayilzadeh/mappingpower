@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faHome, faMap, faBook, faCog, faEdit, faTimes, faTimeline } from '@fortawesome/free-solid-svg-icons';
 import { db } from '../../../firebase';
-import { collection, getDocs, deleteDoc, doc } from 'firebase/firestore';
+import { collection, getDocs, deleteDoc, doc, updateDoc } from 'firebase/firestore';
 import styles from './style.module.css';
 
 const ErasPage = () => {
@@ -17,11 +17,11 @@ const ErasPage = () => {
       const querySnapshot = await getDocs(collection(db, 'eras'));
       const erasData = querySnapshot.docs.map(doc => ({
         id: doc.id,
-        title: doc.data().title,
-        description: doc.data().description
+        ...doc.data()
       }));
-      setEras(erasData);
-      setFilteredEras(erasData);
+      const sortedEras = erasData.sort((a, b) => a.order - b.order); // Sort by the 'order' field
+      setEras(sortedEras);
+      setFilteredEras(sortedEras);
     };
 
     fetchEras();
@@ -44,6 +44,39 @@ const ErasPage = () => {
       } catch (error) {
         console.error('Error deleting era: ', error);
       }
+    }
+  };
+
+  const handleMove = async (index, direction) => {
+    const newEras = [...eras];
+
+    if (direction === 'up') {
+      // Move up: rotate first item to the bottom
+      const swapIndex = index === 0 ? newEras.length - 1 : index - 1;
+      [newEras[index], newEras[swapIndex]] = [newEras[swapIndex], newEras[index]];
+    } else if (direction === 'down') {
+      // Move down: rotate last item to the top
+      const swapIndex = index === newEras.length - 1 ? 0 : index + 1;
+      [newEras[index], newEras[swapIndex]] = [newEras[swapIndex], newEras[index]];
+    }
+
+    // Dynamically update the UI
+    const updatedEras = newEras.map((era, newIndex) => ({
+      ...era,
+      order: newIndex + 1 // Orders start at 1
+    }));
+
+    setEras(updatedEras); // Update the UI immediately
+    setFilteredEras(updatedEras); // Reflect the new order in the filtered list
+
+    // Update the order in Firestore
+    try {
+      const updatePromises = updatedEras.map(era => {
+        return updateDoc(doc(db, 'eras', era.id), { order: era.order });
+      });
+      await Promise.all(updatePromises);
+    } catch (error) {
+      console.error('Error updating order: ', error);
     }
   };
 
@@ -77,13 +110,15 @@ const ErasPage = () => {
         </div>
         <div className={styles.itemList}>
           {filteredEras.length > 0 ? (
-            filteredEras.map((era) => (
+            filteredEras.map((era, index) => (
               <div key={era.id} className={styles.itemEntry}>
                 <div className={styles.itemDetails}>
                   <h2>{era.title}</h2>
                   <p dangerouslySetInnerHTML={{ __html: era.description }} />
                 </div>
                 <div className={styles.itemActions}>
+                  <button onClick={() => handleMove(index, 'up')}>Up</button>
+                  <button onClick={() => handleMove(index, 'down')}>Down</button>
                   <button onClick={() => navigate(`/edit-era/${era.id}`)}><FontAwesomeIcon icon={faEdit} /></button>
                   <button onClick={() => handleDelete(era.id)}><FontAwesomeIcon icon={faTimes} /></button>
                 </div>
