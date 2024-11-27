@@ -114,6 +114,30 @@ const CreateMapPage = () => {
     }
   };
 
+  const handleXMLUpload = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        const parser = new DOMParser();
+        const xmlDoc = parser.parseFromString(event.target.result, 'text/xml');
+
+        const westBL = xmlDoc.getElementsByTagName('westBL')[0]?.textContent;
+        const eastBL = xmlDoc.getElementsByTagName('eastBL')[0]?.textContent;
+        const southBL = xmlDoc.getElementsByTagName('southBL')[0]?.textContent;
+        const northBL = xmlDoc.getElementsByTagName('northBL')[0]?.textContent;
+
+        setCoordinates({
+          x1y1: `${westBL},${northBL}`,
+          x2y2: `${eastBL},${northBL}`,
+          x3y3: `${eastBL},${southBL}`,
+          x4y4: `${westBL},${southBL}`
+        });
+      };
+      reader.readAsText(file);
+    }
+  };
+
   const onChange = (e) => {
     setHtml(e.target.value);
   };
@@ -328,6 +352,9 @@ const CreateMapPage = () => {
                         <img src={rasterImage} alt="Current Raster" style={{ width: '200px', height: 'auto', transform: `rotate(${rotation}deg)` }} />
                       </div>
                     )}
+                    <br />
+                    <label htmlFor="xmlFile">Upload XML for Bounds</label>
+                    <input type="file" name="xmlFile" id="xmlFile" onChange={handleXMLUpload} />
                     <br />
                     <label htmlFor="imageBounds">Image Bounds Coordinates</label>
                     <div className={styles.coordinateInputs}>

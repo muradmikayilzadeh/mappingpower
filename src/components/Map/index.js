@@ -41,7 +41,7 @@ const fetchSettingsData = async () => {
   }
 };
 
-export default function Map({ selectedMaps, mapStyle, selectedNarrative, activeChapter, onUpdateOpacity }) { 
+export default function Map({ selectedMaps, mapStyle, selectedNarrative, activeChapter, onUpdateOpacity, onFlyToLocation }) { 
   const mapContainer = useRef(null);
   const map = useRef(null);
  
@@ -181,6 +181,23 @@ export default function Map({ selectedMaps, mapStyle, selectedNarrative, activeC
       }
     });
   };
+
+    // Fly to specific coordinates
+    const flyToLocation = ({ lng, lat }, zoomLevel = 14) => {
+      if (map.current) {
+        map.current.flyTo({
+          center: [lng, lat],
+          zoom: zoomLevel,
+          essential: true, // This ensures smooth animation
+        });
+      }
+    };
+  
+    useEffect(() => {
+      if (onFlyToLocation) {
+        onFlyToLocation(flyToLocation); // Pass the function to the parent
+      }
+    }, [onFlyToLocation]);
 
   const updateOpacity = (mapId, opacity) => {
     if (!map.current) return;

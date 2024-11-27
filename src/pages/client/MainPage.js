@@ -15,6 +15,7 @@ const MainPage = () => {
   const [mapStyle, setMapStyle] = useState(maptilersdk.MapStyle.BASIC.LIGHT);
   const [selectedNarrative, setSelectedNarrative] = useState(null);
   const [activeChapter, setActiveChapter] = useState(null);
+  const [flyToLocationFunction, setFlyToLocationFunction] = useState(null);
   const [updateOpacity, setUpdateOpacity] = useState(() => () => {}); // Initialize as a no-op function
 
   const fetchContent = async (field) => {
@@ -81,6 +82,7 @@ const MainPage = () => {
         mapStyle={mapStyle}
         selectedNarrative={selectedNarrative}
         activeChapter={activeChapter}
+        // onFlyToLocation={setFlyToLocationFunction} // Get the flyToLocation function
         onUpdateOpacity={setUpdateOpacity} // Pass setter to retrieve updateOpacity function
       />
 
@@ -91,6 +93,7 @@ const MainPage = () => {
           onInfoClick={handleInfoClick}
           onActiveChapterChange={handleActiveChapterChange}
           onUpdateOpacity={handleOpacityChange}
+          // flyToLocation={flyToLocationFunction} // Pass it to the Controller
         />
       </div>
 

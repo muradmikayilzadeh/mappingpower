@@ -1,10 +1,12 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { collection, doc, getDocs, getDoc } from 'firebase/firestore';
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
+import { faMapMarkerAlt, faInfo } from '@fortawesome/free-solid-svg-icons';
 import { db } from '../../firebase';
 import styles from './style.module.css';
 import miniMap from '../../images/miniMap.png';
 
-function Controller({ onMapSelect, onInfoClick, onNarrativeSelect, onActiveChapterChange, onUpdateOpacity }) {
+function Controller({ onMapSelect, onInfoClick, onNarrativeSelect,flyToLocation, onActiveChapterChange, onUpdateOpacity }) {
   const [chapters, setChapters] = useState([]);
   const [checkedMaps, setCheckedMaps] = useState({});
   const [sliderValues, setSliderValues] = useState({});
@@ -12,6 +14,14 @@ function Controller({ onMapSelect, onInfoClick, onNarrativeSelect, onActiveChapt
   const [narratives, setNarratives] = useState([]);
   const [selectedNarrative, setSelectedNarrative] = useState(null);
   const narrativeRef = useRef(null);
+
+  const handleFlyToLocation = (mapDetails) => {
+    if (flyToLocation && mapDetails.center) {
+      flyToLocation(mapDetails.center); // Call the function with the map's center coordinates
+    } else {
+      console.error("Coordinates not available for this map.");
+    }
+  };
 
   useEffect(() => {
     const fetchChaptersAndNarratives = async () => {
@@ -224,7 +234,11 @@ function Controller({ onMapSelect, onInfoClick, onNarrativeSelect, onActiveChapt
                             />
                           )}
                           <i className={styles.mapInfo} onClick={() => handleInfoClick(map.description)}>
-                            𝒊
+                            <FontAwesomeIcon icon={faInfo} />
+                          </i>
+                          {/* map-marker button to fly over to location */}
+                          <i className={styles.mapMarker} onClick={() => handleFlyToLocation(map)}>
+                            <FontAwesomeIcon icon={faMapMarkerAlt} />
                           </i>
                         </div>
                       </div>
