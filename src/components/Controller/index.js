@@ -237,9 +237,9 @@ function Controller({ onMapSelect, onInfoClick, onNarrativeSelect,flyToLocation,
                             <FontAwesomeIcon icon={faInfo} />
                           </i>
                           {/* map-marker button to fly over to location */}
-                          <i className={styles.mapMarker} onClick={() => handleFlyToLocation(map)}>
+                          {/* <i className={styles.mapMarker} onClick={() => handleFlyToLocation(map)}>
                             <FontAwesomeIcon icon={faMapMarkerAlt} />
-                          </i>
+                          </i> */}
                         </div>
                       </div>
                     ))}
