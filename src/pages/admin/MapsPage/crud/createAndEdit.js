@@ -57,39 +57,51 @@ const CreateMapPage = () => {
 
   const handleFormSubmit = async (e) => {
     e.preventDefault();
-
+  
     let docData = {
       title,
       years,
       description: html,
       footnotes,
       map_type: selectedOption,
-      rotation
+      rotation,
     };
-
+  
     try {
+      let mapId = id; // Use the existing ID if editing; create a new one later for new maps
+  
+      if (!id) {
+        // Create a new map document and retrieve its ID
+        const newDocRef = await addDoc(collection(db, 'maps'), {}); // Temporarily create a blank document
+        mapId = newDocRef.id;
+      }
+  
+      // Upload vector file for 'vector' type maps
       if (selectedOption === 'vector' && vectorFile && typeof vectorFile !== 'string') {
-        const vectorFileRef = ref(storage, `maps/vector/${vectorFile.name}`);
+        const vectorFileRef = ref(storage, `maps/vector/${mapId}/${vectorFile.name}`);
         await uploadBytes(vectorFileRef, vectorFile);
         const vectorFileURL = await getDownloadURL(vectorFileRef);
         docData.vector_file = vectorFileURL;
       }
-
+  
+      // Upload raster image for 'raster' type maps
       if (selectedOption === 'raster' && rasterImage && typeof rasterImage !== 'string') {
-        const rasterImageRef = ref(storage, `maps/raster/${rasterImage.name}`);
+        const rasterImageRef = ref(storage, `maps/raster/${mapId}/${rasterImage.name}`);
         await uploadBytes(rasterImageRef, rasterImage);
         const rasterImageURL = await getDownloadURL(rasterImageRef);
         docData.raster_image = rasterImageURL;
         docData.image_bounds_coords = Object.values(coordinates);
       } else if (selectedOption === 'raster') {
+        // Only update coordinates if no new raster image is uploaded
         docData.image_bounds_coords = Object.values(coordinates);
       }
-
+  
+      // Handle vector points upload
       if (selectedOption === 'vector') {
         const vectorInfo = await Promise.all(
           vectorPoints.map(async (point, index) => {
             if (point.image && typeof point.image !== 'string') {
-              const imageRef = ref(storage, `maps/vector/${vectorFile?.name || 'default'}/point_${index + 1}`);
+              const imageRef = ref(storage, `maps/vector/${mapId}/point_${index + 1}`);
               await uploadBytes(imageRef, point.image);
               const imageUrl = await getDownloadURL(imageRef);
               return { ...point, image: imageUrl };
@@ -99,20 +111,24 @@ const CreateMapPage = () => {
         );
         docData.vector_points = vectorInfo;
       }
-
+  
+      // Update the map document in Firestore
       if (id) {
         await updateDoc(doc(db, 'maps', id), docData);
         alert('Map updated successfully!');
       } else {
-        await addDoc(collection(db, 'maps'), docData);
+        await updateDoc(doc(db, 'maps', mapId), docData);
         alert('Map created successfully!');
       }
+  
       navigate('/maps');
     } catch (error) {
       console.error('Error creating/updating map: ', error);
       alert('Error creating/updating map. Please try again.');
     }
   };
+  
+  
 
   const handleXMLUpload = (e) => {
     const file = e.target.files[0];
