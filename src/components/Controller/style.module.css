@@ -161,6 +161,7 @@
     display: flex;
     justify-content: center;
     align-items: center;
+    font-size:12px;
 }
 
 .leftPaddingMD{
@@ -192,3 +193,158 @@
 .narrativeList li{
     list-style:none;
 }
+
+
+/* Thicker Slider */
+.slider {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 120px;
+    height: 8px;         /* Thicker track */
+    border-radius: 4px;
+    outline: none;
+    background: #ccc;    /* We'll override with gradient in JS if checked */
+    cursor: pointer;
+    margin: 0;
+    padding: 0;
+  }
+  
+  /* WebKit track */
+  .slider::-webkit-slider-runnable-track {
+    height: 8px;
+    border-radius: 4px;
+    background: #ccc;
+  }
+  
+  /* WebKit thumb */
+  .slider::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 18px;
+    height: 18px;
+    margin-top: -5px; /* center on 8px track */
+    border-radius: 50%;
+    background: #1e90ff;
+    cursor: pointer;
+    border: 2px solid #fff; /* optional white border */
+    box-shadow: 0 0 2px rgba(0,0,0,0.2);
+  }
+  
+  .slider:focus::-webkit-slider-thumb,
+  .slider:hover::-webkit-slider-thumb {
+    background: #1e90ff;
+  }
+  
+  /* Mozilla track & thumb */
+  .slider::-moz-range-track {
+    height: 8px;
+    border-radius: 4px;
+    background: #ccc;
+  }
+  .slider::-moz-range-thumb {
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    background: #1e90ff;
+    border: 2px solid #fff;
+    box-shadow: 0 0 2px rgba(0,0,0,0.2);
+    cursor: pointer;
+  }
+  
+  /* -------------------------------------------- */
+  /* DISABLED SLIDER FORCING GRAY BACKGROUND      */
+  /* -------------------------------------------- */
+  .slider:disabled,
+  .slider[disabled] {
+    cursor: not-allowed;
+    background: none !important; /* remove inline background so track can show */
+    opacity: 1 !important;       /* ensure no fade in Safari */
+  }
+  
+  /* Force track to be gray when disabled (WebKit) */
+  .slider:disabled::-webkit-slider-runnable-track,
+  .slider[disabled]::-webkit-slider-runnable-track {
+    background: #ccc !important;
+    opacity: 1 !important;
+  }
+  
+  /* Force thumb to be darker gray when disabled (WebKit) */
+  .slider:disabled::-webkit-slider-thumb,
+  .slider[disabled]::-webkit-slider-thumb {
+    background: #999 !important;
+    cursor: not-allowed;
+  }
+  
+  /* Firefox disabled track & thumb */
+  .slider:disabled::-moz-range-track,
+  .slider[disabled]::-moz-range-track {
+    background: #ccc !important;
+    opacity: 1 !important;
+  }
+  .slider:disabled::-moz-range-thumb,
+  .slider[disabled]::-moz-range-thumb {
+    background: #999 !important;
+    cursor: not-allowed;
+  }
+  
+  /* Turn the checkbox red when checked (modern browsers) */
+  .checkBox:checked {
+    accent-color: red; /* For Chrome, Edge, Safari, etc. */
+  }
+  
+  /* Red text for map name when checked */
+  .redText {
+    color: red !important;
+  }
+  /* … your existing styles above … */
+
+/* input range with left-to-right fill using --fill */
+.slider {
+    -webkit-appearance: none;
+    width: 100%;
+    height: 8px;
+    border-radius: 4px;
+    background: linear-gradient(
+      to right,
+      #1e90ff 0%,
+      #1e90ff var(--fill),
+      #ccc var(--fill),
+      #ccc 100%
+    );
+    margin: 0;
+    outline: none;
+  }
+  
+  /* hide native track in WebKit */
+  .slider::-webkit-slider-runnable-track {
+    background: transparent;
+    height: 8px;
+  }
+  
+  /* thumb styling WebKit */
+  .slider::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    background: #1e90ff;
+    cursor: pointer;
+    margin-top: -6px; /* center vertically */
+  }
+  
+  /* hide native track in Firefox */
+  .slider::-moz-range-track {
+    background: transparent;
+    height: 8px;
+  }
+  
+  /* thumb styling Firefox */
+  .slider::-moz-range-thumb {
+    width: 20px;
+    height: 20px;
+    border: none;
+    border-radius: 50%;
+    background: #1e90ff;
+    cursor: pointer;
+  }
+  

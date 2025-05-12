@@ -1,180 +1,194 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { collection, doc, getDocs, getDoc } from 'firebase/firestore';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faMapMarkerAlt, faInfo } from '@fortawesome/free-solid-svg-icons';
+import { faInfo, faMap } from '@fortawesome/free-solid-svg-icons';
 import { db } from '../../firebase';
 import styles from './style.module.css';
 import miniMap from '../../images/miniMap.png';
 
-function Controller({ onMapSelect, onInfoClick, onNarrativeSelect,flyToLocation, onActiveChapterChange, onUpdateOpacity }) {
+function Controller({
+  onMapSelect,
+  onInfoClick,
+  onNarrativeSelect,
+  flyToLocation,
+  onActiveChapterChange,
+  onUpdateOpacity,
+}) {
   const [chapters, setChapters] = useState([]);
   const [checkedMaps, setCheckedMaps] = useState({});
   const [sliderValues, setSliderValues] = useState({});
   const [view, setView] = useState('maps');
   const [narratives, setNarratives] = useState([]);
   const [selectedNarrative, setSelectedNarrative] = useState(null);
+
   const narrativeRef = useRef(null);
 
+  /**
+   * Fly to location or compute fallback if center doesn't exist.
+   */
   const handleFlyToLocation = (mapDetails) => {
-    if (flyToLocation && mapDetails.center) {
-      flyToLocation(mapDetails.center); // Call the function with the map's center coordinates
+    if (!flyToLocation) return;
+
+    if (
+      mapDetails.center &&
+      Array.isArray(mapDetails.center) &&
+      mapDetails.center.length === 2
+    ) {
+      flyToLocation(mapDetails.center);
+    } else if (
+      mapDetails.image_bounds_coords &&
+      Array.isArray(mapDetails.image_bounds_coords) &&
+      mapDetails.image_bounds_coords.length === 4
+    ) {
+      const numericBounds = mapDetails.image_bounds_coords.map((coord) =>
+        coord.split(',').map(Number)
+      );
+      let totalLng = 0,
+        totalLat = 0;
+      numericBounds.forEach(([lng, lat]) => {
+        totalLng += lng;
+        totalLat += lat;
+      });
+      flyToLocation([
+        totalLng / numericBounds.length,
+        totalLat / numericBounds.length,
+      ]);
     } else {
-      console.error("Coordinates not available for this map.");
+      console.error(
+        "No 'center' property or bounding coords found for this map. Cannot fly."
+      );
     }
   };
 
+  // Fetch chapters & narratives
   useEffect(() => {
     const fetchChaptersAndNarratives = async () => {
       try {
-        const erasSnapshot = await getDocs(collection(db, 'eras'));
-        const eras = erasSnapshot.docs
-          .map(doc => ({
-            id: doc.id,
-            ...doc.data(),
-          }))
-          .sort((a, b) => a.order - b.order); // Sort by the "order" field in increasing order
+        const erasSnap = await getDocs(collection(db, 'eras'));
+        const eras = erasSnap.docs
+          .map((d) => ({ id: d.id, ...d.data() }))
+          .sort((a, b) => a.order - b.order);
 
-        const mapsCollection = collection(db, 'maps');
-        const mapGroupsCollection = collection(db, 'map_groups');
+        const mapsCol = collection(db, 'maps');
+        const groupsCol = collection(db, 'map_groups');
 
-        const fetchDetails = async (id, collectionRef) => {
-          const docRef = doc(collectionRef, id);
-          const docSnap = await getDoc(docRef);
-          return docSnap.exists() ? { id: docSnap.id, ...docSnap.data() } : null;
+        const fetchDetails = async (id, colRef) => {
+          const snap = await getDoc(doc(colRef, id));
+          return snap.exists() ? { id: snap.id, ...snap.data() } : null;
         };
 
         const chaptersData = await Promise.all(
-          eras.map(async era => {
-            const maps = await Promise.all(era.maps.map(mapId => fetchDetails(mapId, mapsCollection)));
-            const mapGroups = await Promise.all(era.map_groups.map(mapGroupId => fetchDetails(mapGroupId, mapGroupsCollection)));
-
+          eras.map(async (era) => {
+            const maps = await Promise.all(
+              era.maps.map((mid) => fetchDetails(mid, mapsCol))
+            );
+            const mapGroups = await Promise.all(
+              era.map_groups.map((gid) => fetchDetails(gid, groupsCol))
+            );
             return {
               title: era.title,
               date: era.years,
               description: era.description,
-              maps: maps.filter(map => map !== null),
-              mapGroups: mapGroups.filter(mapGroup => mapGroup !== null),
+              maps: maps.filter((m) => m),
+              mapGroups: mapGroups.filter((g) => g),
               indented: era.indented || [],
             };
           })
         );
-
         setChapters(chaptersData);
 
-        const narrativesSnapshot = await getDocs(collection(db, 'narratives'));
-        const narrativesData = narrativesSnapshot.docs.map(doc => ({
-          id: doc.id,
-          ...doc.data(),
-        }));
-
-        setNarratives(narrativesData);
-      } catch (error) {
-        console.error('Error fetching data:', error);
+        const narrativeSnap = await getDocs(collection(db, 'narratives'));
+        setNarratives(narrativeSnap.docs.map((d) => ({ id: d.id, ...d.data() })));
+      } catch (err) {
+        console.error('Error fetching data:', err);
       }
     };
-
     fetchChaptersAndNarratives();
   }, []);
 
+  /**
+   * Called when user toggles a checkbox for a map.
+   */
   const handleCheckboxChange = async (mapId, checked) => {
     try {
-      const mapRef = doc(db, 'maps', mapId);
-      const mapSnap = await getDoc(mapRef);
-      if (mapSnap.exists()) {
-        const mapDetails = mapSnap.data();
-        setCheckedMaps(prev => {
-          const newCheckedMaps = { ...prev, [mapId]: checked ? mapDetails : null };
-          const filteredMaps = Object.values(newCheckedMaps).filter(Boolean).map(map => ({
-            ...map,
-            opacity: sliderValues[map.id] ? sliderValues[map.id] / 100 : 1,
-          }));
-          onMapSelect(filteredMaps);
-          return newCheckedMaps;
-        });
-      } else {
-        console.log(`No such document with ID: ${mapId}`);
+      const snap = await getDoc(doc(db, 'maps', mapId));
+      if (!snap.exists()) {
+        console.log(`No map document found with ID: ${mapId}`);
+        return;
       }
-    } catch (error) {
-      console.error('Error fetching map details:', error);
+      const mapDetails = { id: mapId, ...snap.data() };
+
+      setCheckedMaps((prev) => {
+        const next = { ...prev, [mapId]: checked ? mapDetails : null };
+        onMapSelect(
+          Object.values(next)
+            .filter(Boolean)
+            .map((m) => ({
+              ...m,
+              opacity: (sliderValues[m.id] ?? 100) / 100,
+            }))
+        );
+        return next;
+      });
+    } catch (err) {
+      console.error('Error fetching map details:', err);
     }
   };
 
+  /**
+   * Called when user drags the slider thumb.
+   */
   const handleSliderChange = (mapId, value) => {
-    const normalizedValue = value / 100;
-  
-    setSliderValues((prevSliderValues) => {
-      const updatedSliderValues = { ...prevSliderValues, [mapId]: value };
-  
-      setCheckedMaps((prevCheckedMaps) => {
-        const updatedCheckedMaps = { ...prevCheckedMaps };
-        if (updatedCheckedMaps[mapId]) {
-          updatedCheckedMaps[mapId] = {
-            ...updatedCheckedMaps[mapId],
-            opacity: normalizedValue,
-          };
-        }
-  
-        // Only call `onUpdateOpacity` in response to slider change
-        if (typeof onUpdateOpacity === 'function') {
-          onUpdateOpacity(mapId, normalizedValue);
-        }
-  
-        onMapSelect(Object.values(updatedCheckedMaps).filter(Boolean));
-        return updatedCheckedMaps;
-      });
-  
-      return updatedSliderValues;
+    const pct = value / 100;
+    setSliderValues((prev) => ({ ...prev, [mapId]: value }));
+    setCheckedMaps((prev) => {
+      const next = { ...prev };
+      if (next[mapId]) next[mapId].opacity = pct;
+      if (onUpdateOpacity) onUpdateOpacity(mapId, pct);
+      return next;
     });
   };
-  
-  
-  
-  
 
-  const handleInfoClick = description => {
-    onInfoClick(description);
+  const handleInfoClick = (desc) => onInfoClick(desc);
+  const handleNarrativeSelect = (narr) => {
+    setSelectedNarrative(narr);
+    onNarrativeSelect(narr);
   };
 
-  const handleNarrativeSelect = narrative => {
-    setSelectedNarrative(narrative);
-    onNarrativeSelect(narrative);
-  };
-
+  // Intersection Observer to detect active chapter
   useEffect(() => {
-    const observerOptions = {
-      root: narrativeRef.current,
-      threshold: 1,
-    };
-
-    const observer = new IntersectionObserver(entries => {
-      entries.forEach(entry => {
-        if (entry.isIntersecting) {
-          const visibleChapterId = entry.target.id;
-          onActiveChapterChange(visibleChapterId);
-        }
-      });
-    }, observerOptions);
+    const obs = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (entry.isIntersecting) onActiveChapterChange(entry.target.id);
+        });
+      },
+      { root: narrativeRef.current, threshold: 1 }
+    );
 
     if (narrativeRef.current) {
-      const sections = narrativeRef.current.querySelectorAll('section');
-      sections.forEach(section => observer.observe(section));
+      narrativeRef.current.querySelectorAll('section').forEach((sec) => obs.observe(sec));
     }
-
     return () => {
       if (narrativeRef.current) {
-        const sections = narrativeRef.current.querySelectorAll('section');
-        sections.forEach(section => observer.unobserve(section));
+        narrativeRef.current.querySelectorAll('section').forEach((sec) => obs.unobserve(sec));
       }
     };
-  }, [selectedNarrative]);
+  }, [selectedNarrative, onActiveChapterChange]);
 
   return (
     <div className={styles.controller}>
       <div className={styles.headings}>
-        <div className={view === 'maps' ? styles.active : ''} onClick={() => setView('maps')}>
+        <div
+          className={view === 'maps' ? styles.active : ''}
+          onClick={() => setView('maps')}
+        >
           <span>maps and plans</span>
         </div>
-        <div className={view === 'narratives' ? styles.active : ''} onClick={() => setView('narratives')}>
+        <div
+          className={view === 'narratives' ? styles.active : ''}
+          onClick={() => setView('narratives')}
+        >
           <span>narratives</span>
         </div>
       </div>
@@ -183,9 +197,9 @@ function Controller({ onMapSelect, onInfoClick, onNarrativeSelect,flyToLocation,
         <div className={styles.sectionInfo}>
           <div className={styles.textArea}>
             <p>
-              Historical maps and plans are organized chronologically. Use the slider bars to compare different plans.
-              Many maps are accompanied by pin layers that contain ground-level views of how the city looked, or might
-              have looked.
+              Historical maps and plans are organized chronologically. Use the slider bars to
+              compare different plans. Many maps are accompanied by pin layers that contain
+              ground-level views of how the city looked, or might have looked.
             </p>
           </div>
           <div className={styles.miniMap}>
@@ -197,12 +211,14 @@ function Controller({ onMapSelect, onInfoClick, onNarrativeSelect,flyToLocation,
       {view === 'maps' && (
         <div className={styles.sectionContent}>
           <div className={styles.chapterList}>
-            {chapters.map((chapter, index) => (
-              <div className={styles.chapter} key={index}>
+            {chapters.map((chapter, ci) => (
+              <div className={styles.chapter} key={ci}>
                 <div className={styles.chapterDetails}>
-                  <div className={styles.chapterDateAndTitle}>
-                    <div className={`${styles.chapterDate} ${styles.grayText}`}>{chapter.date}</div>
-                    <div className={`${styles.chapterTitle} ${styles.leftPaddingMD}`}>{chapter.title}</div>
+                  <div className={`${styles.chapterDate} ${styles.grayText}`}>
+                    {chapter.date}
+                  </div>
+                  <div className={`${styles.chapterTitle} ${styles.leftPaddingMD}`}>
+                    {chapter.title}
                   </div>
                   <div
                     className={`${styles.chapterDescription} ${styles.grayTextItalic}`}
@@ -211,38 +227,77 @@ function Controller({ onMapSelect, onInfoClick, onNarrativeSelect,flyToLocation,
                 </div>
                 <div className={styles.chapterMaps}>
                   <div className={styles.mapList}>
-                    {chapter.maps.map((map, index) => (
-                      <div className={styles.map} key={index}>
-                        <div className={styles.mapDetails}>
-                          <input
-                            type="checkbox"
-                            className={`${styles.checkBox} ${chapter.indented.includes(map.id) ? styles.indentedText : ''}`}
-                            onChange={e => handleCheckboxChange(map.id, e.target.checked)}
-                          />
-                          <span className={`${styles.grayText} ${styles.leftPaddingMD}`}>{map.date}</span>
-                          <span className={`${styles.mapDetailTitle} ${styles.leftPaddingMD}`}>{map.title}</span>
-                        </div>
-                        <div className={styles.mapControls}>
-                          {map.map_type !== 'vector' && (
+                    {chapter.maps.map((map, mi) => {
+                      const checked = !!checkedMaps[map.id];
+                      // default to 100 when no value in state
+                      const fillPct = sliderValues[map.id] ?? 100;
+
+                      return (
+                        <div className={styles.map} key={mi}>
+                          <div className={styles.mapDetails}>
                             <input
-                              type="range"
-                              min="0"
-                              max="100"
-                              value={sliderValues[map.id] || 100}
-                              className={styles.slider}
-                              onChange={e => handleSliderChange(map.id, parseInt(e.target.value, 10))}
+                              type="checkbox"
+                              className={`
+                                ${styles.checkBox}
+                                ${chapter.indented.includes(map.id) ? styles.indentedText : ''}
+                                ${checked ? styles.redCheckBox : ''}
+                              `}
+                              onChange={(e) =>
+                                handleCheckboxChange(map.id, e.target.checked)
+                              }
+                              checked={checked}
                             />
-                          )}
-                          <i className={styles.mapInfo} onClick={() => handleInfoClick(map.description)}>
-                            <FontAwesomeIcon icon={faInfo} />
-                          </i>
-                          {/* map-marker button to fly over to location */}
-                          {/* <i className={styles.mapMarker} onClick={() => handleFlyToLocation(map)}>
-                            <FontAwesomeIcon icon={faMapMarkerAlt} />
-                          </i> */}
+                            <span
+                              className={`${styles.leftPaddingMD} ${
+                                checked ? styles.redText : styles.grayText
+                              }`}
+                            >
+                              {map.date}
+                            </span>
+                            <span
+                              className={`${styles.mapDetailTitle} ${styles.leftPaddingMD} ${
+                                checked ? styles.redText : ''
+                              }`}
+                            >
+                              {map.title}
+                            </span>
+                          </div>
+
+                          <div className={styles.mapControls}>
+                            {map.map_type !== 'vector' && (
+                              <input
+                                type="range"
+                                id={`slider-${map.id}`}
+                                className={styles.slider}
+                                min="0"
+                                max="100"
+                                value={fillPct}
+                                onChange={(e) =>
+                                  handleSliderChange(
+                                    map.id,
+                                    parseInt(e.target.value, 10)
+                                  )
+                                }
+                                disabled={!checked}
+                                style={{ '--fill': `${fillPct}%` }}
+                              />
+                            )}
+                            <i
+                              className={styles.mapInfo}
+                              onClick={() => handleInfoClick(map.description)}
+                            >
+                              <FontAwesomeIcon icon={faInfo} />
+                            </i>
+                            <i
+                              className={styles.mapMarker}
+                              onClick={() => handleFlyToLocation(map)}
+                            >
+                              <FontAwesomeIcon icon={faMap} />
+                            </i>
+                          </div>
                         </div>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 </div>
               </div>
@@ -256,12 +311,16 @@ function Controller({ onMapSelect, onInfoClick, onNarrativeSelect,flyToLocation,
           <div className={styles.textArea}>
             <h2>Table of Contents</h2>
             <ul className={styles.narrativeList}>
-              {narratives.map((narrative, index) => (
-                <li key={narrative.id} className={styles.narrativeItem} onClick={() => handleNarrativeSelect(narrative)}>
-                  <div className={styles.narrativeTitle}>{narrative.title}</div>
+              {narratives.map((narr) => (
+                <li
+                  key={narr.id}
+                  className={styles.narrativeItem}
+                  onClick={() => handleNarrativeSelect(narr)}
+                >
+                  <div className={styles.narrativeTitle}>{narr.title}</div>
                   <div
                     className={styles.narrativeDescription}
-                    dangerouslySetInnerHTML={{ __html: narrative.description }}
+                    dangerouslySetInnerHTML={{ __html: narr.description }}
                   />
                 </li>
               ))}
@@ -276,9 +335,9 @@ function Controller({ onMapSelect, onInfoClick, onNarrativeSelect,flyToLocation,
       {view === 'narratives' && selectedNarrative && (
         <div className={styles.sectionContent} ref={narrativeRef}>
           {selectedNarrative.chapters ? (
-            Object.entries(selectedNarrative.chapters).map(([chapterId, chapter], index) => (
-              <section key={chapterId} id={chapterId} className={styles.chapterSection}>
-                <p dangerouslySetInnerHTML={{ __html: chapter.content }}></p>
+            Object.entries(selectedNarrative.chapters).map(([cid, chap]) => (
+              <section key={cid} id={cid} className={styles.chapterSection}>
+                <p dangerouslySetInnerHTML={{ __html: chap.content }} />
               </section>
             ))
           ) : (

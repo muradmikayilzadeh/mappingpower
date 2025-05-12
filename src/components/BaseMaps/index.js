@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import * as maptilersdk from '@maptiler/sdk'; // Import maptilersdk
 import styles from './style.module.css';
 
@@ -11,30 +11,46 @@ const basemapOptions = [
 ];
 
 function Basemaps({ onStyleChange }) {
+    const [selectedBasemap, setSelectedBasemap] = useState(basemapOptions[0].id); // Default to the first option
+    const [isCollapsed, setIsCollapsed] = useState(false); // Track collapse state
+
+    const handleBasemapChange = (option) => {
+        setSelectedBasemap(option.id);
+        onStyleChange(option.style);
+    };
+
+    const toggleCollapse = () => {
+        setIsCollapsed(!isCollapsed); // Toggle collapse state
+    };
+
     return (
         <div className={styles.basemaps}>
-            <div className={styles.basemapsTitle}>
+            <div className={styles.basemapsTitle} onClick={toggleCollapse}>
                 <span>basemaps</span>
-                <img src="https://www.imaginedsanfrancisco.org/wp-content/themes/imaginedsf-custom-theme/static/basemaps.png" alt="Basemaps Logo" />
+                <img 
+                    src="https://www.imaginedsanfrancisco.org/wp-content/themes/imaginedsf-custom-theme/static/basemaps.png" 
+                    alt="Basemaps Logo"
+                    className={styles.basemapLogo}
+                />
             </div>
-            <div className={styles.basemapsOptions}>
-                {basemapOptions.map((option) => (
-                    <div className={styles.option} key={option.id}>
-                        <div className={styles.optionDetails}>
-                            <input
-                                type='checkbox'
-                                className={styles.checkBox}
-                                onChange={() => onStyleChange(option.style)} // Call onStyleChange with the selected style
-                            />
-                            <span className={`${styles.leftPaddingMD} ${styles.grayText}`}>{option.name}</span>
+
+            {!isCollapsed && (
+                <div className={`${styles.basemapsOptions} ${isCollapsed ? styles.collapsed : ""}`}>
+                    {basemapOptions.map((option) => (
+                        <div className={styles.option} key={option.id}>
+                            <div className={styles.optionDetails}>
+                                <input
+                                    type="checkbox"
+                                    className={styles.checkBox}
+                                    checked={selectedBasemap === option.id}
+                                    onChange={() => handleBasemapChange(option)}
+                                />
+                                <span className={`${styles.leftPaddingMD} ${styles.grayText}`}>{option.name}</span>
+                            </div>
                         </div>
-                        {/* <div className={styles.optionControls}>
-                            <input type="range" min="1" max="100" value="100" className={styles.slider} />
-                            <i className={styles.optionInfo}>𝒊</i>
-                        </div> */}
-                    </div>
-                ))}
-            </div>
+                    ))}
+                </div>
+            )}
         </div>
     );
 }
