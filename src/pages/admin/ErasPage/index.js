@@ -87,7 +87,7 @@ const ErasPage = () => {
           <li onClick={() => navigate('/dashboard')}><FontAwesomeIcon icon={faHome} /><span>Home</span></li>
           <li onClick={() => navigate('/eras')} ><FontAwesomeIcon icon={faTimeline} /><span>Eras</span></li>
           <li onClick={() => navigate('/maps')}><FontAwesomeIcon icon={faMap} /><span>Maps</span></li>
-          <li onClick={() => navigate('/media')}><FontAwesomeIcon icon={faMap} /><span>Media Library</span></li>
+          {/* <li onClick={() => navigate('/media')}><FontAwesomeIcon icon={faMap} /><span>Media Library</span></li> */}
           <li onClick={() => navigate('/narratives')}><FontAwesomeIcon icon={faBook} /><span>Narratives</span></li>
           <li onClick={() => navigate('/settings')}><FontAwesomeIcon icon={faCog} /><span>Settings</span></li>
         </ul>
