@@ -95,14 +95,18 @@ function Controller({
 
         const narrativeSnap = await getDocs(collection(db, 'narratives'));
         const narrativesData = narrativeSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
+        // Filter to only show public narratives (default to true if field missing)
+        const publicNarratives = narrativesData.filter((n) =>
+          Object.prototype.hasOwnProperty.call(n, 'public') ? !!n.public : true
+        );
         // Sort by order field (default to 0 if not set), then by title
-        narrativesData.sort((a, b) => {
+        publicNarratives.sort((a, b) => {
           const orderA = typeof a.order === 'number' ? a.order : 0;
           const orderB = typeof b.order === 'number' ? b.order : 0;
           if (orderA !== orderB) return orderA - orderB;
           return (a.title || '').localeCompare(b.title || '');
         });
-        setNarratives(narrativesData);
+        setNarratives(publicNarratives);
       } catch (err) {
         console.error('Error fetching data:', err);
       }

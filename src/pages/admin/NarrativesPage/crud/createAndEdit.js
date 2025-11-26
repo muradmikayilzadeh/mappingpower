@@ -11,11 +11,17 @@ const CreateNarrativePage = () => {
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [order, setOrder] = useState(0);
+  const [isPublic, setIsPublic] = useState(true);
   const [chapters, setChapters] = useState({});
   const [loading, setLoading] = useState(true);
 
   const navigate = useNavigate();
   const { id } = useParams();
+
+  // Generate a random Chapter ID
+  const generateChapterId = () => {
+    return `chapter-${Math.random().toString(36).substring(2, 9)}-${Date.now().toString(36)}`;
+  };
 
   // Load narrative if editing; also backfill the JSON textarea from stored fields
   useEffect(() => {
@@ -28,6 +34,8 @@ const CreateNarrativePage = () => {
             setTitle(data.title || '');
             setDescription(data.description || '');
             setOrder(typeof data.order === 'number' ? data.order : 0);
+            // Default to true (public) if field doesn't exist
+            setIsPublic(Object.prototype.hasOwnProperty.call(data, 'public') ? !!data.public : true);
 
             const incomingChapters = data.chapters || {};
             const normalized = {};
@@ -44,8 +52,11 @@ const CreateNarrativePage = () => {
                 maps: Array.isArray(ch.maps) ? ch.maps : [],
               };
 
+              // Generate chapter_id if it doesn't exist
+              const chapterId = ch.chapter_id || generateChapterId();
+
               normalized[key] = {
-                chapter_id: ch.chapter_id || '',
+                chapter_id: chapterId,
                 speed: typeof ch.speed === 'number' ? ch.speed : 0.5,
                 content: ch.content || '',
                 dataJsonText: JSON.stringify(jsonFromExisting, null, 2),
@@ -68,10 +79,11 @@ const CreateNarrativePage = () => {
 
   const addChapter = () => {
     const newChapterKey = `chapter-${Date.now()}`;
+    const newChapterId = generateChapterId();
     setChapters((prev) => ({
       ...prev,
       [newChapterKey]: {
-        chapter_id: '',
+        chapter_id: newChapterId,
         speed: 0.5,
         content: '',
         dataJsonText: JSON.stringify(
@@ -106,7 +118,9 @@ const CreateNarrativePage = () => {
   };
 
   const handleFormSubmit = async (e) => {
-    e.preventDefault();
+    if (e && e.preventDefault) {
+      e.preventDefault();
+    }
 
     // Transform chapters for storage: parse JSON and attach derived fields
     const chaptersForSave = {};
@@ -152,6 +166,7 @@ const CreateNarrativePage = () => {
       title,
       description: description || '',
       order: typeof order === 'number' ? order : 0,
+      public: isPublic,
       chapters: chaptersForSave,
     };
 
@@ -202,7 +217,19 @@ const CreateNarrativePage = () => {
       <div className={styles.content}>
         <div className={styles.headBar}>
           <h1>{id ? 'Edit Narrative' : 'Create Narrative'}</h1>
-          <button onClick={() => navigate('/narratives')}>Back</button>
+          <div>
+            <button 
+              type="button" 
+              onClick={(e) => {
+                e.preventDefault();
+                handleFormSubmit(e);
+              }} 
+              style={{ marginRight: '10px' }}
+            >
+              {id ? 'Update' : 'Save'}
+            </button>
+            <button onClick={() => navigate('/narratives')}>Back</button>
+          </div>
         </div>
 
         <div className={styles.formContainer}>
@@ -246,10 +273,22 @@ const CreateNarrativePage = () => {
               <br />
               <br />
 
+              <label htmlFor="isPublic">
+                <input
+                  type="checkbox"
+                  name="isPublic"
+                  id="isPublic"
+                  checked={isPublic}
+                  onChange={(e) => setIsPublic(e.target.checked)}
+                  style={{ marginRight: '8px' }}
+                />
+                Visible on website (uncheck to hide incomplete drafts)
+              </label>
+
+              <br />
+              <br />
+
               <h2>Chapters</h2>
-              <button type="button" onClick={addChapter}>
-                Add Chapter
-              </button>
 
               <div className={styles.chapters}>
                 {Object.keys(chapters).length === 0 && (
@@ -260,13 +299,13 @@ const CreateNarrativePage = () => {
                   const ch = chapters[chapterKey];
                   return (
                     <div key={chapterKey} className={styles.chapterItem}>
-                      <label>Chapter ID:</label>
+                      <label>Chapter ID (auto-generated):</label>
                       <input
                         type="text"
                         value={ch.chapter_id}
-                        onChange={(e) =>
-                          handleChapterField(chapterKey, 'chapter_id', e.target.value)
-                        }
+                        disabled
+                        style={{ backgroundColor: '#f5f5f5', cursor: 'not-allowed' }}
+                        title="Chapter ID is auto-generated and cannot be changed"
                       />
                       <br />
 
@@ -315,6 +354,12 @@ const CreateNarrativePage = () => {
                   );
                 })}
               </div>
+
+              <br />
+              <br />
+              <button type="button" onClick={addChapter}>
+                Add Chapter
+              </button>
 
               <br />
               <br />

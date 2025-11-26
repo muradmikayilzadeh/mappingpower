@@ -1,9 +1,9 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faHome, faMap, faBook, faCog, faEdit, faEye, faTimes, faTimeline } from '@fortawesome/free-solid-svg-icons';
+import { faHome, faMap, faBook, faCog, faEdit, faEye, faEyeSlash, faTimes, faTimeline } from '@fortawesome/free-solid-svg-icons';
 import { db } from '../../../firebase';
-import { collection, getDocs, deleteDoc, doc } from 'firebase/firestore';
+import { collection, getDocs, deleteDoc, doc, updateDoc } from 'firebase/firestore';
 import styles from './style.module.css';
 
 const NarrativesPage = () => {
@@ -15,11 +15,16 @@ const NarrativesPage = () => {
   useEffect(() => {
     const fetchNarratives = async () => {
       const querySnapshot = await getDocs(collection(db, 'narratives'));
-      const narrativesData = querySnapshot.docs.map(doc => ({
-        id: doc.id,
-        title: doc.data().title,
-        description: doc.data().description,
-      }));
+      const narrativesData = querySnapshot.docs.map(doc => {
+        const data = doc.data();
+        return {
+          id: doc.id,
+          title: data.title,
+          description: data.description,
+          // default visibility: if field absent -> visible (true)
+          public: Object.prototype.hasOwnProperty.call(data, 'public') ? !!data.public : true
+        };
+      });
       setNarratives(narrativesData);
       setFilteredNarratives(narrativesData);
     };
@@ -44,6 +49,27 @@ const NarrativesPage = () => {
       } catch (error) {
         console.error('Error deleting narrative: ', error);
       }
+    }
+  };
+
+  const handleTogglePublic = async (id) => {
+    // find current value
+    const current = narratives.find(n => n.id === id);
+    if (!current) return;
+    const newValue = !current.public;
+
+    // optimistic UI
+    setNarratives(prev => prev.map(n => (n.id === id ? { ...n, public: newValue } : n)));
+    setFilteredNarratives(prev => prev.map(n => (n.id === id ? { ...n, public: newValue } : n)));
+
+    try {
+      await updateDoc(doc(db, 'narratives', id), { public: newValue });
+    } catch (err) {
+      console.error('Failed to update visibility:', err);
+      // rollback on failure
+      setNarratives(prev => prev.map(n => (n.id === id ? { ...n, public: !newValue } : n)));
+      setFilteredNarratives(prev => prev.map(n => (n.id === id ? { ...n, public: !newValue } : n)));
+      alert('Could not update visibility. Please try again.');
     }
   };
 
@@ -77,13 +103,39 @@ const NarrativesPage = () => {
             filteredNarratives.map((narrative) => (
               <div key={narrative.id} className={styles.itemEntry}>
                 <div className={styles.itemDetails}>
-                  <h2>{narrative.title}</h2>
+                  <h2>
+                    {narrative.title}{' '}
+                    <span
+                      title={narrative.public ? 'Publicly visible' : 'Private (hidden)'}
+                      style={{
+                        fontSize: 12,
+                        padding: '2px 8px',
+                        borderRadius: 999,
+                        marginLeft: 8,
+                        border: '1px solid',
+                        borderColor: narrative.public ? '#1f8b4c' : '#b54747',
+                        color: narrative.public ? '#1f8b4c' : '#b54747',
+                        background: narrative.public ? 'rgba(31,139,76,0.08)' : 'rgba(181,71,71,0.08)'
+                      }}
+                    >
+                      {narrative.public ? 'Public' : 'Private'}
+                    </span>
+                  </h2>
                   <p>{narrative.description}</p>
                 </div>
                 <div className={styles.itemActions}>
-                  <button onClick={() => navigate(`/edit-narrative/${narrative.id}`)}><FontAwesomeIcon icon={faEdit} /></button>
-                  <button><FontAwesomeIcon icon={faEye} /></button>
-                  <button onClick={() => handleDelete(narrative.id)}><FontAwesomeIcon icon={faTimes} /></button>
+                  <button onClick={() => navigate(`/edit-narrative/${narrative.id}`)} title="Edit">
+                    <FontAwesomeIcon icon={faEdit} />
+                  </button>
+                  <button
+                    onClick={() => handleTogglePublic(narrative.id)}
+                    title={narrative.public ? 'Make Private' : 'Make Public'}
+                  >
+                    <FontAwesomeIcon icon={narrative.public ? faEye : faEyeSlash} />
+                  </button>
+                  <button onClick={() => handleDelete(narrative.id)} title="Delete">
+                    <FontAwesomeIcon icon={faTimes} />
+                  </button>
                 </div>
               </div>
             ))
