@@ -1,5 +1,5 @@
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { doc, getDoc } from 'firebase/firestore'; // Firestore imports
 import { db } from './firebase'; // Adjust the path as per your setup
 
@@ -22,6 +22,31 @@ import CreateMapGroupPage from './pages/admin/MapGroupsPage/crud/createAndEdit';
 import ErasPage from './pages/admin/ErasPage';
 import CreateEraPage from './pages/admin/ErasPage/crud/createAndEdit';
 import MediaPage from './pages/admin/MediaPage';
+
+// --- Simple page component that prompts for a password and sets a flag ---
+function AuthorizePage() {
+  const ranRef = useRef(false);
+
+  useEffect(() => {
+    // Guard against double-invocation in React Strict Mode
+    if (ranRef.current) return;
+    ranRef.current = true;
+
+    const input = window.prompt('Enter authorization password:');
+    const ok = input === '2pygafmX64LY';
+
+    if (ok) {
+      localStorage.setItem('isAuthorized', 'true');
+      alert('✅ Authorized successfully.');
+    } else {
+      localStorage.removeItem('isAuthorized');
+      alert('❌ Incorrect password.');
+    }
+  }, []);
+
+  // You can render anything here; the important work happens in useEffect.
+  return null;
+}
 
 function App() {
   useEffect(() => {
@@ -65,6 +90,9 @@ function App() {
           <Route path="/create-narrative" element={<CreateNarrativePage />} />
           <Route path="/edit-narrative/:id" element={<CreateNarrativePage />} />
           <Route path="/settings" element={<SettingsPage />} />
+
+          {/* New authorize route */}
+          <Route path="/authorize" element={<AuthorizePage />} />
         </Routes>
       </Router>
     </>

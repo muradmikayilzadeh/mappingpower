@@ -10,13 +10,14 @@ import {
   faCog,
   faEdit,
   faEye,
+  faEyeSlash,
   faTimes,
   faSearch,
   faTimeline
 } from '@fortawesome/free-solid-svg-icons';
 
 import { db } from '../../../firebase';
-import { collection, getDocs, deleteDoc, doc } from 'firebase/firestore';
+import { collection, getDocs, deleteDoc, doc, updateDoc } from 'firebase/firestore';
 import styles from './style.module.css';
 
 const MapsPage = () => {
@@ -34,14 +35,15 @@ const MapsPage = () => {
         return {
           id: d.id,
           title: data.title || '',
-          // default to empty string if missing
           description: data.description || '',
           map_type: data.map_type || '',
-          // also default URLs to empty string
+          // default URLs to empty string
           snippetUrl:
             data.map_type === 'raster'
               ? data.raster_image || ''
-              : data.vector_file || ''
+              : data.vector_file || '',
+          // default visibility: if field absent -> visible (true)
+          public: Object.prototype.hasOwnProperty.call(data, 'public') ? !!data.public : true
         };
       });
       setMapEntries(maps);
@@ -67,6 +69,27 @@ const MapsPage = () => {
       } catch (error) {
         console.error('Error deleting map: ', error);
       }
+    }
+  };
+
+  const handleTogglePublic = async (id) => {
+    // find current value
+    const current = mapEntries.find(e => e.id === id);
+    if (!current) return;
+    const newValue = !current.public;
+
+    // optimistic UI
+    setMapEntries(prev => prev.map(e => (e.id === id ? { ...e, public: newValue } : e)));
+    setFilteredEntries(prev => prev.map(e => (e.id === id ? { ...e, public: newValue } : e)));
+
+    try {
+      await updateDoc(doc(db, 'maps', id), { public: newValue });
+    } catch (err) {
+      console.error('Failed to update visibility:', err);
+      // rollback on failure
+      setMapEntries(prev => prev.map(e => (e.id === id ? { ...e, public: !newValue } : e)));
+      setFilteredEntries(prev => prev.map(e => (e.id === id ? { ...e, public: !newValue } : e)));
+      alert('Could not update visibility. Please try again.');
     }
   };
 
@@ -115,7 +138,24 @@ const MapsPage = () => {
             filteredEntries.map(entry => (
               <div key={entry.id} className={styles.itemEntry}>
                 <div className={styles.itemDetails}>
-                  <h2>{entry.title}</h2>
+                  <h2>
+                    {entry.title}{' '}
+                    <span
+                      title={entry.public ? 'Publicly visible' : 'Private (hidden)'}
+                      style={{
+                        fontSize: 12,
+                        padding: '2px 8px',
+                        borderRadius: 999,
+                        marginLeft: 8,
+                        border: '1px solid',
+                        borderColor: entry.public ? '#1f8b4c' : '#b54747',
+                        color: entry.public ? '#1f8b4c' : '#b54747',
+                        background: entry.public ? 'rgba(31,139,76,0.08)' : 'rgba(181,71,71,0.08)'
+                      }}
+                    >
+                      {entry.public ? 'Public' : 'Private'}
+                    </span>
+                  </h2>
                   <p
                     dangerouslySetInnerHTML={{
                       __html: entry.description.slice(0, 140)
@@ -126,13 +166,20 @@ const MapsPage = () => {
                 <div className={styles.itemActions}>
                   <button
                     onClick={() => navigate(`/edit-map/${entry.id}`)}
+                    title="Edit"
                   >
                     <FontAwesomeIcon icon={faEdit} />
                   </button>
-                  <button>
-                    <FontAwesomeIcon icon={faEye} />
+
+                  {/* Visibility toggle */}
+                  <button
+                    onClick={() => handleTogglePublic(entry.id)}
+                    title={entry.public ? 'Make Private' : 'Make Public'}
+                  >
+                    <FontAwesomeIcon icon={entry.public ? faEye : faEyeSlash} />
                   </button>
-                  <button onClick={() => handleDelete(entry.id)}>
+
+                  <button onClick={() => handleDelete(entry.id)} title="Delete">
                     <FontAwesomeIcon icon={faTimes} />
                   </button>
                 </div>

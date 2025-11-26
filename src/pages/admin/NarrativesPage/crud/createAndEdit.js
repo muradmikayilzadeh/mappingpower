@@ -3,49 +3,150 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faHome, faMap, faBook, faCog, faTimeline } from '@fortawesome/free-solid-svg-icons';
 import Editor from 'react-simple-wysiwyg';
-import { collection, getDocs, addDoc, doc, getDoc, updateDoc } from 'firebase/firestore';
-import { db } from '../../../../firebase'; // Ensure this path is correct based on your project structure
+import { collection, addDoc, doc, getDoc, updateDoc } from 'firebase/firestore';
+import { db } from '../../../../firebase'; // Adjust path if needed
 import styles from '../style.module.css';
 
 const CreateNarrativePage = () => {
   const [title, setTitle] = useState('');
-  const [mapEntries, setMapEntries] = useState([]);
   const [chapters, setChapters] = useState({});
-  const navigate = useNavigate();
-  const { id } = useParams();
   const [loading, setLoading] = useState(true);
 
+  const navigate = useNavigate();
+  const { id } = useParams();
+
+  // Load narrative if editing; also backfill the JSON textarea from stored fields
   useEffect(() => {
     const fetchData = async () => {
-      const mapsSnapshot = await getDocs(collection(db, 'maps'));
+      try {
+        if (id) {
+          const narrativeDoc = await getDoc(doc(db, 'narratives', id));
+          if (narrativeDoc.exists()) {
+            const data = narrativeDoc.data();
+            setTitle(data.title || '');
 
-      const maps = mapsSnapshot.docs.map(doc => ({
-        id: doc.id,
-        title: doc.data().title + " (" + doc.data().years + ")",
-      }));
+            const incomingChapters = data.chapters || {};
+            const normalized = {};
 
-      setMapEntries(maps);
+            Object.entries(incomingChapters).forEach(([key, ch]) => {
+              // Prepare JSON text from existing fields, if present
+              const jsonFromExisting = {
+                currentMapFocusLocation:
+                  Array.isArray(ch.center) && ch.center.length === 2
+                    ? ch.center
+                    : [0, 0],
+                currentZoomLevel:
+                  typeof ch.zoom === 'number' ? ch.zoom : 10,
+                maps: Array.isArray(ch.maps) ? ch.maps : [],
+              };
 
-      if (id) {
-        const narrativeDoc = await getDoc(doc(db, 'narratives', id));
-        if (narrativeDoc.exists()) {
-          const data = narrativeDoc.data();
-          setTitle(data.title);
-          setChapters(data.chapters || {});
+              normalized[key] = {
+                chapter_id: ch.chapter_id || '',
+                speed: typeof ch.speed === 'number' ? ch.speed : 0.5,
+                content: ch.content || '',
+                dataJsonText: JSON.stringify(jsonFromExisting, null, 2),
+              };
+            });
+
+            setChapters(normalized);
+          }
         }
+      } catch (err) {
+        console.error('Error loading narrative:', err);
+        alert('Failed to load narrative.');
+      } finally {
+        setLoading(false);
       }
-      setLoading(false);
     };
 
     fetchData();
   }, [id]);
 
+  const addChapter = () => {
+    const newChapterKey = `chapter-${Date.now()}`;
+    setChapters((prev) => ({
+      ...prev,
+      [newChapterKey]: {
+        chapter_id: '',
+        speed: 0.5,
+        content: '',
+        dataJsonText: JSON.stringify(
+          {
+            currentMapFocusLocation: [0, 0],
+            currentZoomLevel: 10,
+            maps: [],
+          },
+          null,
+          2
+        ),
+      },
+    }));
+  };
+
+  const removeChapter = (chapterKey) => {
+    setChapters((prev) => {
+      const copy = { ...prev };
+      delete copy[chapterKey];
+      return copy;
+    });
+  };
+
+  const handleChapterField = (chapterKey, field, value) => {
+    setChapters((prev) => ({
+      ...prev,
+      [chapterKey]: {
+        ...prev[chapterKey],
+        [field]: value,
+      },
+    }));
+  };
+
   const handleFormSubmit = async (e) => {
     e.preventDefault();
 
+    // Transform chapters for storage: parse JSON and attach derived fields
+    const chaptersForSave = {};
+    for (const [key, ch] of Object.entries(chapters)) {
+      // Parse per-chapter Data JSON
+      let parsed;
+      try {
+        parsed = JSON.parse(ch.dataJsonText || '{}');
+      } catch (err) {
+        alert(`Chapter "${ch.chapter_id || key}": Data JSON is invalid. Please fix it.`);
+        return;
+      }
+
+      // Basic validation
+      const hasCenter =
+        parsed &&
+        Array.isArray(parsed.currentMapFocusLocation) &&
+        parsed.currentMapFocusLocation.length === 2 &&
+        parsed.currentMapFocusLocation.every((n) => typeof n === 'number');
+
+      const hasZoom = parsed && typeof parsed.currentZoomLevel === 'number';
+      const maps = Array.isArray(parsed.maps) ? parsed.maps : [];
+
+      if (!hasCenter || !hasZoom) {
+        alert(
+          `Chapter "${ch.chapter_id || key}": Data JSON must include "currentMapFocusLocation" as [lng,lat] and "currentZoomLevel" as a number.`
+        );
+        return;
+      }
+
+      chaptersForSave[key] = {
+        chapter_id: ch.chapter_id || '',
+        speed: typeof ch.speed === 'number' ? ch.speed : Number(ch.speed) || 0.5,
+        content: ch.content || '',
+        // Derived fields stored for the player/Map to use
+        center: parsed.currentMapFocusLocation, // [lng, lat]
+        zoom: parsed.currentZoomLevel, // number
+        maps: maps, // [{ id, opacityVal }, ...]
+      };
+    }
+
     const narrativeData = {
       title,
-      chapters,
+      chapters: chaptersForSave,
     };
 
     try {
@@ -63,152 +164,128 @@ const CreateNarrativePage = () => {
     }
   };
 
-  const addChapter = () => {
-    const newChapterKey = `chapter-${Date.now()}`;
-    setChapters({
-      ...chapters,
-      [newChapterKey]: {
-        chapter_id: '', // Empty string initially, user will provide this
-        bearing: 0,
-        center: [0, 0],
-        zoom: 10,
-        speed: 0.5,
-        pitch: 0,
-        source_map_id: mapEntries[0]?.id || '',
-        content: '', // New content field for rich text editor
-      }
-    });
-  };
-
-  const handleChapterChange = (chapterKey, field, value) => {
-    setChapters({
-      ...chapters,
-      [chapterKey]: {
-        ...chapters[chapterKey],
-        [field]: value
-      }
-    });
-  };
-
-  const handleContentChange = (chapterKey, value) => {
-    setChapters({
-      ...chapters,
-      [chapterKey]: {
-        ...chapters[chapterKey],
-        content: value
-      }
-    });
-  };
-
-  const removeChapter = (chapterKey) => {
-    const updatedChapters = { ...chapters };
-    delete updatedChapters[chapterKey];
-    setChapters(updatedChapters);
-  };
-
-  if (loading) {
-    return <div>Loading...</div>;
-  }
+  if (loading) return <div>Loading...</div>;
 
   return (
     <div className={styles.dashboard}>
       <div className={styles.sidebar}>
         <ul className={styles.sidebarMenu}>
-          <li onClick={() => navigate('/dashboard')}><FontAwesomeIcon icon={faHome} /><span>Home</span></li>
-          <li onClick={() => navigate('/eras')} ><FontAwesomeIcon icon={faTimeline} /><span>Eras</span></li>
-          <li onClick={() => navigate('/maps')}><FontAwesomeIcon icon={faMap} /><span>Maps</span></li>
-          <li onClick={() => navigate('/narratives')}><FontAwesomeIcon icon={faBook} /><span>Narratives</span></li>
-          <li onClick={() => navigate('/settings')}><FontAwesomeIcon icon={faCog} /><span>Settings</span></li>
+          <li onClick={() => navigate('/dashboard')}>
+            <FontAwesomeIcon icon={faHome} />
+            <span>Home</span>
+          </li>
+          <li onClick={() => navigate('/eras')}>
+            <FontAwesomeIcon icon={faTimeline} />
+            <span>Eras</span>
+          </li>
+          <li onClick={() => navigate('/maps')}>
+            <FontAwesomeIcon icon={faMap} />
+            <span>Maps</span>
+          </li>
+          <li onClick={() => navigate('/narratives')}>
+            <FontAwesomeIcon icon={faBook} />
+            <span>Narratives</span>
+          </li>
+          <li onClick={() => navigate('/settings')}>
+            <FontAwesomeIcon icon={faCog} />
+            <span>Settings</span>
+          </li>
         </ul>
       </div>
+
       <div className={styles.content}>
         <div className={styles.headBar}>
           <h1>{id ? 'Edit Narrative' : 'Create Narrative'}</h1>
           <button onClick={() => navigate('/narratives')}>Back</button>
         </div>
+
         <div className={styles.formContainer}>
           <form onSubmit={handleFormSubmit}>
             <div className={styles.formGroup}>
               <label htmlFor="title">Title</label>
-              <input type="text" name="title" id="title" value={title} onChange={(e) => setTitle(e.target.value)} />
+              <input
+                type="text"
+                name="title"
+                id="title"
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
+              />
 
-              <br /><br />
+              <br />
+              <br />
 
               <h2>Chapters</h2>
-              <button type="button" onClick={addChapter}>Add Chapter</button>
+              <button type="button" onClick={addChapter}>
+                Add Chapter
+              </button>
 
               <div className={styles.chapters}>
-                {Object.keys(chapters).map((chapterKey) => (
-                  <div key={chapterKey} className={styles.chapterItem}>
-                    <label>Chapter ID:</label>
-                    <input
-                      type="text"
-                      value={chapters[chapterKey].chapter_id}
-                      onChange={(e) => handleChapterChange(chapterKey, 'chapter_id', e.target.value)}
-                    />
-                    <br />
-                    <label>Bearing:</label>
-                    <input
-                      type="number"
-                      value={chapters[chapterKey].bearing}
-                      onChange={(e) => handleChapterChange(chapterKey, 'bearing', e.target.value)}
-                    />
-                    <br />
-                    <label>Center (Lat, Lng):</label>
-                    <input
-                      type="text"
-                      value={chapters[chapterKey].center}
-                      onChange={(e) => handleChapterChange(chapterKey, 'center', e.target.value.split(',').map(Number))}
-                    />
-                    <br />
-                    <label>Zoom:</label>
-                    <input
-                      type="number"
-                      value={chapters[chapterKey].zoom}
-                      onChange={(e) => handleChapterChange(chapterKey, 'zoom', e.target.value)}
-                    />
-                    <br />
-                    <label>Speed:</label>
-                    <input
-                      type="number"
-                      value={chapters[chapterKey].speed}
-                      onChange={(e) => handleChapterChange(chapterKey, 'speed', e.target.value)}
-                    />
-                    <br />
-                    <label>Pitch:</label>
-                    <input
-                      type="number"
-                      value={chapters[chapterKey].pitch}
-                      onChange={(e) => handleChapterChange(chapterKey, 'pitch', e.target.value)}
-                    />
-                    <br />
-                    <label>Source Map:</label>
-                    <select
-                      value={chapters[chapterKey].source_map_id}
-                      onChange={(e) => handleChapterChange(chapterKey, 'source_map_id', e.target.value)}
-                    >
-                      {mapEntries.map((map) => (
-                        <option key={map.id} value={map.id}>
-                          {map.title}
-                        </option>
-                      ))}
-                    </select>
+                {Object.keys(chapters).length === 0 && (
+                  <p style={{ marginTop: 12 }}>No chapters yet. Click “Add Chapter”.</p>
+                )}
 
-                    <br />
-                    <label>Content:</label>
-                    <Editor
-                      value={chapters[chapterKey].content}
-                      onChange={(e) => handleContentChange(chapterKey, e.target.value)}
-                      className={styles.richTextEditor}
-                    />
+                {Object.keys(chapters).map((chapterKey) => {
+                  const ch = chapters[chapterKey];
+                  return (
+                    <div key={chapterKey} className={styles.chapterItem}>
+                      <label>Chapter ID:</label>
+                      <input
+                        type="text"
+                        value={ch.chapter_id}
+                        onChange={(e) =>
+                          handleChapterField(chapterKey, 'chapter_id', e.target.value)
+                        }
+                      />
+                      <br />
 
-                    <br />
-                    <button type="button" onClick={() => removeChapter(chapterKey)}>Remove Chapter</button>
-                  </div>
-                ))}
+                      <label>Speed:</label>
+                      <input
+                        type="number"
+                        step="0.1"
+                        value={ch.speed}
+                        onChange={(e) =>
+                          handleChapterField(
+                            chapterKey,
+                            'speed',
+                            e.target.value === '' ? '' : Number(e.target.value)
+                          )
+                        }
+                      />
+                      <br />
+
+                      <label>Content:</label>
+                      <Editor
+                        value={ch.content}
+                        onChange={(e) =>
+                          handleChapterField(chapterKey, 'content', e.target.value)
+                        }
+                        className={styles.richTextEditor}
+                      />
+                      <br />
+
+                      <label>Data JSON (paste from map overlay):</label>
+                      <textarea
+                        rows={8}
+                        value={ch.dataJsonText}
+                        onChange={(e) =>
+                          handleChapterField(chapterKey, 'dataJsonText', e.target.value)
+                        }
+                        placeholder={`{\n  "currentMapFocusLocation": [-122.4194, 37.7749],\n  "currentZoomLevel": 12,\n  "maps": [\n    { "id": "abc", "opacityVal": 1 }\n  ]\n}`}
+                        className={styles.textarea}
+                        style={{ width: '100%', fontFamily: 'monospace' }}
+                      />
+
+                      <br />
+                      <button type="button" onClick={() => removeChapter(chapterKey)}>
+                        Remove Chapter
+                      </button>
+                    </div>
+                  );
+                })}
               </div>
 
-              <br /><br />
+              <br />
+              <br />
               <button type="submit">{id ? 'Update Narrative' : 'Create Narrative'}</button>
             </div>
           </form>

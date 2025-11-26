@@ -1,5 +1,5 @@
 import * as maptilersdk from '@maptiler/sdk';
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { doc, getDoc } from 'firebase/firestore';
 import { db } from '../../firebase';
 import Navbar from '../../components/Navbar';
@@ -16,14 +16,11 @@ const MainPage = () => {
   const [selectedNarrative, setSelectedNarrative] = useState(null);
   const [activeChapter, setActiveChapter] = useState(null);
 
-  // We'll store the function to update opacity (provided from <Map />).
+  // Function to update opacity (provided by <Map />)
   const [updateOpacityFn, setUpdateOpacityFn] = useState(() => () => {});
-  // We'll store the function to fly to location (provided from <Map />).
+  // Function to fly to location (provided by <Map />)
   const [flyToLocationFn, setFlyToLocationFn] = useState(null);
 
-  /**
-   * Fetch content from Firestore for introduction, bibliography, credits, etc.
-   */
   const fetchContent = async (field) => {
     try {
       const docRef = doc(db, 'settings', 'settingsData');
@@ -32,7 +29,7 @@ const MainPage = () => {
         const data = docSnap.data();
         setModalData({
           isOpen: true,
-          title: field.charAt(0).toUpperCase() + field.slice(1), // e.g. "Introduction"
+          title: field.charAt(0).toUpperCase() + field.slice(1),
           content: data[field],
         });
       } else {
@@ -43,43 +40,24 @@ const MainPage = () => {
     }
   };
 
-  /**
-   * Called whenever maps are selected/unselected in <Controller />
-   */
   const handleMapSelect = (maps) => {
     setSelectedMaps(maps);
   };
 
-  /**
-   * Called whenever user changes opacity slider in <Controller />
-   */
   const handleOpacityChange = (mapId, opacity) => {
-    if (updateOpacityFn) {
-      updateOpacityFn(mapId, opacity);
-    }
+    if (updateOpacityFn) updateOpacityFn(mapId, opacity);
   };
 
-  /**
-   * Called whenever user selects a narrative in <Controller />
-   */
   const handleNarrativeSelect = (narrative) => {
     setSelectedNarrative(narrative);
   };
 
-  /**
-   * Called when the active chapter changes (scrolling in the narrative)
-   */
   const handleActiveChapterChange = (chapterName) => {
     setActiveChapter(chapterName);
   };
 
-  /**
-   * Called when any link in the Navbar is clicked.
-   * We do a special check for 'share' to show the Share Modal
-   */
   const handleLinkClick = (field) => {
     if (field === 'share') {
-      // Show the "Share current view" modal at top-right
       setModalData({
         isOpen: true,
         title: 'Share current view',
@@ -98,24 +76,67 @@ const MainPage = () => {
         `,
       });
     } else {
-      // For introduction, bibliography, credits, etc., fetch from Firestore
       fetchContent(field);
     }
   };
 
-  /**
-   * Called when user clicks "info" icon on a map
-   */
   const handleInfoClick = (description) => {
     setModalData({ isOpen: true, title: 'Map Information', content: description });
   };
 
-  /**
-   * Closes the currently open modal
-   */
   const closeModal = () => {
     setModalData({ isOpen: false, title: '', content: '' });
   };
+
+  // If a narrative is selected and we don't yet have an active chapter,
+  // initialize it to the first chapter key so that center/zoom/maps apply immediately.
+  useEffect(() => {
+    if (!selectedNarrative) return;
+    const keys = Object.keys(selectedNarrative.chapters || {});
+    if (!keys.length) return;
+    if (!activeChapter) {
+      setActiveChapter(keys[0]);
+    }
+  }, [selectedNarrative]); // intentionally not depending on activeChapter to avoid loops
+
+  // Whenever the active chapter changes (or narrative changes), load that chapter's maps
+  // and set opacities based on chapter.maps[].opacityVal.
+  useEffect(() => {
+    const loadChapterMaps = async () => {
+      if (!selectedNarrative || !activeChapter) return;
+      const chapter = selectedNarrative.chapters?.[activeChapter];
+      if (!chapter) return;
+
+      // Expecting: chapter.maps -> [{ id, opacityVal }]
+      const mapsList = Array.isArray(chapter.maps) ? chapter.maps : [];
+      if (!mapsList.length) {
+        setSelectedMaps([]);
+        return;
+      }
+
+      const mapped = await Promise.all(
+        mapsList.map(async (m) => {
+          try {
+            const snap = await getDoc(doc(db, 'maps', m.id));
+            if (!snap.exists()) return null;
+            const data = snap.data();
+            return {
+              id: snap.id,
+              ...data,
+              opacity: typeof m.opacityVal === 'number' ? m.opacityVal : 1,
+            };
+          } catch (e) {
+            console.error('Error loading map for chapter:', e);
+            return null;
+          }
+        })
+      );
+
+      setSelectedMaps(mapped.filter(Boolean));
+    };
+
+    loadChapterMaps();
+  }, [selectedNarrative, activeChapter]);
 
   return (
     <div className={styles.App}>
