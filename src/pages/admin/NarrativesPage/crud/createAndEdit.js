@@ -9,6 +9,8 @@ import styles from '../style.module.css';
 
 const CreateNarrativePage = () => {
   const [title, setTitle] = useState('');
+  const [description, setDescription] = useState('');
+  const [order, setOrder] = useState(0);
   const [chapters, setChapters] = useState({});
   const [loading, setLoading] = useState(true);
 
@@ -24,6 +26,8 @@ const CreateNarrativePage = () => {
           if (narrativeDoc.exists()) {
             const data = narrativeDoc.data();
             setTitle(data.title || '');
+            setDescription(data.description || '');
+            setOrder(typeof data.order === 'number' ? data.order : 0);
 
             const incomingChapters = data.chapters || {};
             const normalized = {};
@@ -146,6 +150,8 @@ const CreateNarrativePage = () => {
 
     const narrativeData = {
       title,
+      description: description || '',
+      order: typeof order === 'number' ? order : 0,
       chapters: chaptersForSave,
     };
 
@@ -210,6 +216,32 @@ const CreateNarrativePage = () => {
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
               />
+
+              <br />
+              <br />
+
+              <label htmlFor="description">Description</label>
+              <Editor
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+                className={styles.richTextEditor}
+              />
+
+              <br />
+              <br />
+
+              <label htmlFor="order">Order (for Table of Contents sorting)</label>
+              <input
+                type="number"
+                name="order"
+                id="order"
+                value={order}
+                onChange={(e) => setOrder(e.target.value === '' ? 0 : Number(e.target.value))}
+                style={{ width: '100px' }}
+              />
+              <small style={{ marginLeft: '10px', color: '#666' }}>
+                Lower numbers appear first in the Table of Contents
+              </small>
 
               <br />
               <br />

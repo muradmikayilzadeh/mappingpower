@@ -20,6 +20,8 @@ const MainPage = () => {
   const [updateOpacityFn, setUpdateOpacityFn] = useState(() => () => {});
   // Function to fly to location (provided by <Map />)
   const [flyToLocationFn, setFlyToLocationFn] = useState(null);
+  // Current map view state for minimap
+  const [mapView, setMapView] = useState({ center: { lng: -122.4194, lat: 37.7749 }, zoom: 12 });
 
   const fetchContent = async (field) => {
     try {
@@ -153,6 +155,7 @@ const MainPage = () => {
         activeChapter={activeChapter}
         onUpdateOpacity={setUpdateOpacityFn}
         onFlyToLocation={setFlyToLocationFn}
+        onMapViewChange={(center, zoom) => setMapView({ center, zoom })}
       />
 
       {/* Left/Right Panels */}
@@ -164,6 +167,8 @@ const MainPage = () => {
           onActiveChapterChange={handleActiveChapterChange}
           onUpdateOpacity={handleOpacityChange}
           flyToLocation={flyToLocationFn}
+          mapView={mapView}
+          mapStyle={mapStyle}
         />
       </div>
 

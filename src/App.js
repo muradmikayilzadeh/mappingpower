@@ -1,4 +1,4 @@
-import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, useNavigate } from 'react-router-dom';
 import { useEffect, useRef } from 'react';
 import { doc, getDoc } from 'firebase/firestore'; // Firestore imports
 import { db } from './firebase'; // Adjust the path as per your setup
@@ -26,6 +26,7 @@ import MediaPage from './pages/admin/MediaPage';
 // --- Simple page component that prompts for a password and sets a flag ---
 function AuthorizePage() {
   const ranRef = useRef(false);
+  const navigate = useNavigate();
 
   useEffect(() => {
     // Guard against double-invocation in React Strict Mode
@@ -38,11 +39,19 @@ function AuthorizePage() {
     if (ok) {
       localStorage.setItem('isAuthorized', 'true');
       alert('✅ Authorized successfully.');
+      // Navigate to homepage after clicking OK on alert
+      setTimeout(() => {
+        navigate('/');
+      }, 0);
     } else {
       localStorage.removeItem('isAuthorized');
       alert('❌ Incorrect password.');
+      // Navigate to homepage even on failure
+      setTimeout(() => {
+        navigate('/');
+      }, 0);
     }
-  }, []);
+  }, [navigate]);
 
   // You can render anything here; the important work happens in useEffect.
   return null;

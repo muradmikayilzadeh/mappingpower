@@ -47,13 +47,18 @@
     line-height: 1.25rem;
     box-shadow:rgba(0, 0, 0, 0.05) 0px 3px 3px;
     flex:2;
+    height:12rem;
+    min-height:12rem;
     max-height:12rem;
 }
 
 .controller .sectionInfo .textArea{
     flex:2;
     height:100%;
-    padding-left: 0.5rem;
+    padding: 0.5rem;
+    display: flex;
+    flex-direction: column;
+    overflow-y: auto;
 }
 
 .controller .sectionInfo .miniMap{
@@ -192,6 +197,7 @@
 
 .narrativeList li{
     list-style:none;
+    margin-bottom: 1rem;
 }
 
 

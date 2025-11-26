@@ -4,7 +4,7 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faInfo, faMap } from '@fortawesome/free-solid-svg-icons';
 import { db } from '../../firebase';
 import styles from './style.module.css';
-import miniMap from '../../images/miniMap.png';
+import MiniMap from '../MiniMap';
 
 function Controller({
   onMapSelect,
@@ -13,6 +13,8 @@ function Controller({
   flyToLocation,
   onActiveChapterChange,
   onUpdateOpacity,
+  mapView,
+  mapStyle,
 }) {
   const [chapters, setChapters] = useState([]);
   const [checkedMaps, setCheckedMaps] = useState({});
@@ -92,7 +94,15 @@ function Controller({
         setChapters(chaptersData);
 
         const narrativeSnap = await getDocs(collection(db, 'narratives'));
-        setNarratives(narrativeSnap.docs.map((d) => ({ id: d.id, ...d.data() })));
+        const narrativesData = narrativeSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
+        // Sort by order field (default to 0 if not set), then by title
+        narrativesData.sort((a, b) => {
+          const orderA = typeof a.order === 'number' ? a.order : 0;
+          const orderB = typeof b.order === 'number' ? b.order : 0;
+          if (orderA !== orderB) return orderA - orderB;
+          return (a.title || '').localeCompare(b.title || '');
+        });
+        setNarratives(narrativesData);
       } catch (err) {
         console.error('Error fetching data:', err);
       }
@@ -324,7 +334,13 @@ function Controller({
             </p>
           </div>
           <div className={styles.miniMap}>
-            <img src={miniMap} alt="Mini Map" />
+            {mapView ? (
+              <MiniMap center={mapView.center} mapStyle={mapStyle} fixedZoom={10} />
+            ) : (
+              <div style={{ width: '100%', height: '100%', backgroundColor: '#e0e0e0', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <span style={{ color: '#999' }}>Loading map...</span>
+              </div>
+            )}
           </div>
         </div>
       )}
@@ -437,7 +453,13 @@ function Controller({
             </ul>
           </div>
           <div className={styles.miniMap}>
-            <img src={miniMap} alt="Mini Map" />
+            {mapView ? (
+              <MiniMap center={mapView.center} mapStyle={mapStyle} fixedZoom={10} />
+            ) : (
+              <div style={{ width: '100%', height: '100%', backgroundColor: '#e0e0e0', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <span style={{ color: '#999' }}>Loading map...</span>
+              </div>
+            )}
           </div>
         </div>
       )}
@@ -449,6 +471,25 @@ function Controller({
           onClick={onNarrativeClick}
           onKeyDown={onNarrativeKeyDown}
         >
+          <button
+            onClick={() => {
+              setSelectedNarrative(null);
+              onNarrativeSelect(null);
+            }}
+            className={styles.backButton}
+            style={{
+              marginBottom: '1rem',
+              padding: '0.5rem 1rem',
+              cursor: 'pointer',
+              backgroundColor: '#f0f0f0',
+              border: '1px solid #ccc',
+              borderRadius: '4px',
+              color: '#333',
+              fontWeight: '500',
+            }}
+          >
+            ← Back to Table of Contents
+          </button>
           {selectedNarrative.chapters ? (
             processedChapters.map(({ cid, html }) => (
               <section key={cid} id={cid} className={styles.chapterSection}>

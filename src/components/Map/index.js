@@ -30,6 +30,7 @@ export default function Map({
   activeChapter,
   onUpdateOpacity,
   onFlyToLocation,
+  onMapViewChange,
 }) {
   const mapContainer = useRef(null);
   const map = useRef(null);
@@ -116,8 +117,14 @@ export default function Map({
 
     const updateLiveState = () => {
       const c = map.current.getCenter();
-      setLiveCenter({ lng: Number(c.lng.toFixed(6)), lat: Number(c.lat.toFixed(6)) });
-      setLiveZoom(Number(map.current.getZoom().toFixed(2)));
+      const newCenter = { lng: Number(c.lng.toFixed(6)), lat: Number(c.lat.toFixed(6)) };
+      const newZoom = Number(map.current.getZoom().toFixed(2));
+      setLiveCenter(newCenter);
+      setLiveZoom(newZoom);
+      // Notify parent component of view changes
+      if (onMapViewChange) {
+        onMapViewChange(newCenter, newZoom);
+      }
     };
 
     map.current.on('load', () => {
@@ -144,6 +151,14 @@ export default function Map({
         renderMaps(selectedMaps);
       }
       updateLiveState();
+      // Also update on initial load
+      if (onMapViewChange) {
+        const c = map.current.getCenter();
+        onMapViewChange(
+          { lng: Number(c.lng.toFixed(6)), lat: Number(c.lat.toFixed(6)) },
+          Number(map.current.getZoom().toFixed(2))
+        );
+      }
     });
 
     map.current.on('moveend', updateLiveState);
