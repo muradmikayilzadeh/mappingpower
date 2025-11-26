@@ -1,18 +1,17 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faHome, faMap, faBook, faCog, faTimeline } from '@fortawesome/free-solid-svg-icons';
+import { faHome, faMap, faBook, faCog, faTimeline, faArrowUp, faArrowDown } from '@fortawesome/free-solid-svg-icons';
 import Editor from 'react-simple-wysiwyg';
-import { collection, addDoc, doc, getDoc, updateDoc } from 'firebase/firestore';
+import { collection, addDoc, doc, getDoc, updateDoc, getDocs } from 'firebase/firestore';
 import { db } from '../../../../firebase'; // Adjust path if needed
 import styles from '../style.module.css';
 
 const CreateNarrativePage = () => {
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
-  const [order, setOrder] = useState(0);
   const [isPublic, setIsPublic] = useState(true);
-  const [chapters, setChapters] = useState({});
+  const [chapters, setChapters] = useState([]); // Changed to array to preserve order
   const [loading, setLoading] = useState(true);
 
   const navigate = useNavigate();
@@ -33,14 +32,22 @@ const CreateNarrativePage = () => {
             const data = narrativeDoc.data();
             setTitle(data.title || '');
             setDescription(data.description || '');
-            setOrder(typeof data.order === 'number' ? data.order : 0);
             // Default to true (public) if field doesn't exist
             setIsPublic(Object.prototype.hasOwnProperty.call(data, 'public') ? !!data.public : true);
 
             const incomingChapters = data.chapters || {};
-            const normalized = {};
+            const normalized = [];
 
-            Object.entries(incomingChapters).forEach(([key, ch]) => {
+            // Convert object to array and preserve order
+            const chapterEntries = Object.entries(incomingChapters);
+            // Sort by order field if it exists, otherwise maintain insertion order
+            chapterEntries.sort((a, b) => {
+              const orderA = a[1].order !== undefined ? a[1].order : 0;
+              const orderB = b[1].order !== undefined ? b[1].order : 0;
+              return orderA - orderB;
+            });
+
+            chapterEntries.forEach(([key, ch], index) => {
               // Prepare JSON text from existing fields, if present
               const jsonFromExisting = {
                 currentMapFocusLocation:
@@ -55,14 +62,18 @@ const CreateNarrativePage = () => {
               // Generate chapter_id if it doesn't exist
               const chapterId = ch.chapter_id || generateChapterId();
 
-              normalized[key] = {
+              normalized.push({
+                key: key,
                 chapter_id: chapterId,
                 speed: typeof ch.speed === 'number' ? ch.speed : 0.5,
                 content: ch.content || '',
                 dataJsonText: JSON.stringify(jsonFromExisting, null, 2),
-              };
+                order: ch.order !== undefined ? ch.order : index, // Assign order if missing
+              });
             });
 
+            // Sort by order to ensure correct sequence
+            normalized.sort((a, b) => a.order - b.order);
             setChapters(normalized);
           }
         }
@@ -80,41 +91,63 @@ const CreateNarrativePage = () => {
   const addChapter = () => {
     const newChapterKey = `chapter-${Date.now()}`;
     const newChapterId = generateChapterId();
-    setChapters((prev) => ({
-      ...prev,
-      [newChapterKey]: {
-        chapter_id: newChapterId,
-        speed: 0.5,
-        content: '',
-        dataJsonText: JSON.stringify(
-          {
-            currentMapFocusLocation: [0, 0],
-            currentZoomLevel: 10,
-            maps: [],
-          },
-          null,
-          2
-        ),
-      },
-    }));
-  };
-
-  const removeChapter = (chapterKey) => {
     setChapters((prev) => {
-      const copy = { ...prev };
-      delete copy[chapterKey];
-      return copy;
+      const maxOrder = prev.length > 0 ? Math.max(...prev.map(ch => ch.order !== undefined ? ch.order : 0)) : -1;
+      return [
+        ...prev,
+        {
+          key: newChapterKey,
+          chapter_id: newChapterId,
+          speed: 0.5,
+          content: '',
+          dataJsonText: JSON.stringify(
+            {
+              currentMapFocusLocation: [0, 0],
+              currentZoomLevel: 10,
+              maps: [],
+            },
+            null,
+            2
+          ),
+          order: maxOrder + 1,
+        },
+      ];
     });
   };
 
-  const handleChapterField = (chapterKey, field, value) => {
-    setChapters((prev) => ({
-      ...prev,
-      [chapterKey]: {
-        ...prev[chapterKey],
+  const removeChapter = (index) => {
+    setChapters((prev) => prev.filter((_, i) => i !== index));
+  };
+
+  const moveChapter = (index, direction) => {
+    if (direction === 'up' && index === 0) return;
+    if (direction === 'down' && index === chapters.length - 1) return;
+
+    setChapters((prev) => {
+      const newChapters = [...prev];
+      const targetIndex = direction === 'up' ? index - 1 : index + 1;
+      
+      // Swap orders
+      const tempOrder = newChapters[index].order;
+      newChapters[index].order = newChapters[targetIndex].order;
+      newChapters[targetIndex].order = tempOrder;
+      
+      // Swap positions
+      [newChapters[index], newChapters[targetIndex]] = [newChapters[targetIndex], newChapters[index]];
+      
+      return newChapters;
+    });
+  };
+
+  const handleChapterField = (index, field, value) => {
+    setChapters((prev) => {
+      const newChapters = [...prev];
+      newChapters[index] = {
+        ...newChapters[index],
         [field]: value,
-      },
-    }));
+      };
+      return newChapters;
+    });
   };
 
   const handleFormSubmit = async (e) => {
@@ -123,8 +156,13 @@ const CreateNarrativePage = () => {
     }
 
     // Transform chapters for storage: parse JSON and attach derived fields
+    // Sort by order first to ensure correct sequence
+    const sortedChapters = [...chapters].sort((a, b) => (a.order || 0) - (b.order || 0));
     const chaptersForSave = {};
-    for (const [key, ch] of Object.entries(chapters)) {
+    
+    sortedChapters.forEach((ch, index) => {
+      const key = ch.key || `chapter-${Date.now()}-${index}`;
+      
       // Parse per-chapter Data JSON
       let parsed;
       try {
@@ -155,17 +193,44 @@ const CreateNarrativePage = () => {
         chapter_id: ch.chapter_id || '',
         speed: typeof ch.speed === 'number' ? ch.speed : Number(ch.speed) || 0.5,
         content: ch.content || '',
+        order: ch.order !== undefined ? ch.order : index, // Preserve order
         // Derived fields stored for the player/Map to use
         center: parsed.currentMapFocusLocation, // [lng, lat]
         zoom: parsed.currentZoomLevel, // number
         maps: maps, // [{ id, opacityVal }, ...]
       };
+    });
+
+    // Get the current order if editing, or assign a new order if creating
+    let narrativeOrder = 0;
+    if (id) {
+      // When editing, keep the existing order
+      try {
+        const existingDoc = await getDoc(doc(db, 'narratives', id));
+        if (existingDoc.exists()) {
+          narrativeOrder = typeof existingDoc.data().order === 'number' ? existingDoc.data().order : 0;
+        }
+      } catch (err) {
+        console.error('Error fetching existing order:', err);
+      }
+    } else {
+      // When creating, assign order based on highest existing order + 1
+      try {
+        const allNarratives = await getDocs(collection(db, 'narratives'));
+        const orders = allNarratives.docs.map(d => {
+          const data = d.data();
+          return typeof data.order === 'number' ? data.order : 0;
+        });
+        narrativeOrder = orders.length > 0 ? Math.max(...orders) + 1 : 0;
+      } catch (err) {
+        console.error('Error calculating new order:', err);
+      }
     }
 
     const narrativeData = {
       title,
       description: description || '',
-      order: typeof order === 'number' ? order : 0,
+      order: narrativeOrder,
       public: isPublic,
       chapters: chaptersForSave,
     };
@@ -235,70 +300,177 @@ const CreateNarrativePage = () => {
         <div className={styles.formContainer}>
           <form onSubmit={handleFormSubmit}>
             <div className={styles.formGroup}>
-              <label htmlFor="title">Title</label>
-              <input
-                type="text"
-                name="title"
-                id="title"
-                value={title}
-                onChange={(e) => setTitle(e.target.value)}
-              />
-
-              <br />
-              <br />
-
-              <label htmlFor="description">Description</label>
-              <Editor
-                value={description}
-                onChange={(e) => setDescription(e.target.value)}
-                className={styles.richTextEditor}
-              />
-
-              <br />
-              <br />
-
-              <label htmlFor="order">Order (for Table of Contents sorting)</label>
-              <input
-                type="number"
-                name="order"
-                id="order"
-                value={order}
-                onChange={(e) => setOrder(e.target.value === '' ? 0 : Number(e.target.value))}
-                style={{ width: '100px' }}
-              />
-              <small style={{ marginLeft: '10px', color: '#666' }}>
-                Lower numbers appear first in the Table of Contents
-              </small>
-
-              <br />
-              <br />
-
-              <label htmlFor="isPublic">
+              <div style={{ marginBottom: '24px' }}>
+                <label htmlFor="title" style={{ display: 'block', marginBottom: '8px', fontWeight: '600', fontSize: '14px' }}>
+                  Title
+                </label>
                 <input
-                  type="checkbox"
-                  name="isPublic"
-                  id="isPublic"
-                  checked={isPublic}
-                  onChange={(e) => setIsPublic(e.target.checked)}
-                  style={{ marginRight: '8px' }}
+                  type="text"
+                  name="title"
+                  id="title"
+                  value={title}
+                  onChange={(e) => setTitle(e.target.value)}
+                  style={{ width: '100%', padding: '10px', border: '1px solid #ddd', borderRadius: '5px', fontSize: '14px' }}
                 />
-                Visible on website (uncheck to hide incomplete drafts)
-              </label>
+              </div>
 
-              <br />
-              <br />
+              <div style={{ marginBottom: '24px' }}>
+                <label htmlFor="description" style={{ display: 'block', marginBottom: '8px', fontWeight: '600', fontSize: '14px' }}>
+                  Description
+                </label>
+                <Editor
+                  value={description}
+                  onChange={(e) => setDescription(e.target.value)}
+                  className={styles.richTextEditor}
+                />
+              </div>
 
-              <h2>Chapters</h2>
+              <div style={{ 
+                marginBottom: '24px',
+                padding: '16px',
+                backgroundColor: '#f8f9fa',
+                borderRadius: '6px',
+                border: '1px solid #e9ecef'
+              }}>
+                <label htmlFor="isPublic" style={{ display: 'flex', alignItems: 'center', cursor: 'pointer' }}>
+                  <input
+                    type="checkbox"
+                    name="isPublic"
+                    id="isPublic"
+                    checked={isPublic}
+                    onChange={(e) => setIsPublic(e.target.checked)}
+                    style={{ marginRight: '8px', width: '18px', height: '18px', cursor: 'pointer' }}
+                  />
+                  <span style={{ fontSize: '14px', fontWeight: '500' }}>
+                    Visible on website
+                  </span>
+                </label>
+                <small style={{ display: 'block', marginLeft: '26px', marginTop: '4px', color: '#666', fontSize: '12px' }}>
+                  (uncheck to hide incomplete drafts)
+                </small>
+              </div>
+
+              <div style={{ marginTop: '32px', marginBottom: '16px' }}>
+                <h2 style={{ margin: '0 0 16px 0', fontSize: '20px', fontWeight: '600' }}>Chapters</h2>
+              </div>
 
               <div className={styles.chapters}>
-                {Object.keys(chapters).length === 0 && (
-                  <p style={{ marginTop: 12 }}>No chapters yet. Click “Add Chapter”.</p>
+                {chapters.length === 0 && (
+                  <p style={{ marginTop: 12 }}>No chapters yet. Click "Add Chapter".</p>
                 )}
 
-                {Object.keys(chapters).map((chapterKey) => {
-                  const ch = chapters[chapterKey];
+                {[...chapters].sort((a, b) => (a.order || 0) - (b.order || 0)).map((ch, displayIndex) => {
+                  // Find the actual index in the original array for move/remove operations
+                  const actualIndex = chapters.findIndex(c => c.key === ch.key);
                   return (
-                    <div key={chapterKey} className={styles.chapterItem}>
+                    <div key={ch.key || `chapter-${displayIndex}`} className={styles.chapterItem}>
+                      <div style={{ 
+                        display: 'flex', 
+                        justifyContent: 'space-between', 
+                        alignItems: 'center', 
+                        marginBottom: '10px', 
+                        padding: '10px 12px', 
+                        backgroundColor: '#f9f9f9', 
+                        borderRadius: '6px',
+                        border: '1px solid #e0e0e0'
+                      }}>
+                        <strong style={{ fontSize: '16px', color: '#333' }}>Chapter {displayIndex + 1}</strong>
+                        <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
+                          <button
+                            type="button"
+                            onClick={() => moveChapter(actualIndex, 'up')}
+                            disabled={displayIndex === 0}
+                            style={{ 
+                              padding: '6px 10px',
+                              fontSize: '12px',
+                              border: '1px solid #d0d0d0',
+                              borderRadius: '4px',
+                              backgroundColor: displayIndex === 0 ? '#f5f5f5' : '#ffffff',
+                              color: displayIndex === 0 ? '#999' : '#333',
+                              cursor: displayIndex === 0 ? 'not-allowed' : 'pointer',
+                              transition: 'all 0.2s',
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: '4px'
+                            }}
+                            onMouseEnter={(e) => {
+                              if (displayIndex !== 0) {
+                                e.target.style.backgroundColor = '#f0f0f0';
+                                e.target.style.borderColor = '#b0b0b0';
+                              }
+                            }}
+                            onMouseLeave={(e) => {
+                              if (displayIndex !== 0) {
+                                e.target.style.backgroundColor = '#ffffff';
+                                e.target.style.borderColor = '#d0d0d0';
+                              }
+                            }}
+                            title="Move up"
+                          >
+                            <FontAwesomeIcon icon={faArrowUp} style={{ fontSize: '11px' }} />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => moveChapter(actualIndex, 'down')}
+                            disabled={displayIndex === chapters.length - 1}
+                            style={{ 
+                              padding: '6px 10px',
+                              fontSize: '12px',
+                              border: '1px solid #d0d0d0',
+                              borderRadius: '4px',
+                              backgroundColor: displayIndex === chapters.length - 1 ? '#f5f5f5' : '#ffffff',
+                              color: displayIndex === chapters.length - 1 ? '#999' : '#333',
+                              cursor: displayIndex === chapters.length - 1 ? 'not-allowed' : 'pointer',
+                              transition: 'all 0.2s',
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: '4px'
+                            }}
+                            onMouseEnter={(e) => {
+                              if (displayIndex !== chapters.length - 1) {
+                                e.target.style.backgroundColor = '#f0f0f0';
+                                e.target.style.borderColor = '#b0b0b0';
+                              }
+                            }}
+                            onMouseLeave={(e) => {
+                              if (displayIndex !== chapters.length - 1) {
+                                e.target.style.backgroundColor = '#ffffff';
+                                e.target.style.borderColor = '#d0d0d0';
+                              }
+                            }}
+                            title="Move down"
+                          >
+                            <FontAwesomeIcon icon={faArrowDown} style={{ fontSize: '11px' }} />
+                          </button>
+                          <button 
+                            type="button" 
+                            onClick={() => removeChapter(actualIndex)} 
+                            style={{ 
+                              padding: '6px 12px',
+                              fontSize: '12px',
+                              border: '1px solid #dc3545',
+                              borderRadius: '4px',
+                              backgroundColor: '#ffffff',
+                              color: '#dc3545',
+                              cursor: 'pointer',
+                              transition: 'all 0.2s',
+                              fontWeight: '500'
+                            }}
+                            onMouseEnter={(e) => {
+                              e.target.style.backgroundColor = '#dc3545';
+                              e.target.style.color = '#ffffff';
+                            }}
+                            onMouseLeave={(e) => {
+                              e.target.style.backgroundColor = '#ffffff';
+                              e.target.style.color = '#dc3545';
+                            }}
+                            title="Remove chapter"
+                          >
+                            Remove
+                          </button>
+                        </div>
+                      </div>
+
                       <label>Chapter ID (auto-generated):</label>
                       <input
                         type="text"
@@ -316,7 +488,7 @@ const CreateNarrativePage = () => {
                         value={ch.speed}
                         onChange={(e) =>
                           handleChapterField(
-                            chapterKey,
+                            actualIndex,
                             'speed',
                             e.target.value === '' ? '' : Number(e.target.value)
                           )
@@ -328,7 +500,7 @@ const CreateNarrativePage = () => {
                       <Editor
                         value={ch.content}
                         onChange={(e) =>
-                          handleChapterField(chapterKey, 'content', e.target.value)
+                          handleChapterField(actualIndex, 'content', e.target.value)
                         }
                         className={styles.richTextEditor}
                       />
@@ -339,31 +511,36 @@ const CreateNarrativePage = () => {
                         rows={8}
                         value={ch.dataJsonText}
                         onChange={(e) =>
-                          handleChapterField(chapterKey, 'dataJsonText', e.target.value)
+                          handleChapterField(actualIndex, 'dataJsonText', e.target.value)
                         }
                         placeholder={`{\n  "currentMapFocusLocation": [-122.4194, 37.7749],\n  "currentZoomLevel": 12,\n  "maps": [\n    { "id": "abc", "opacityVal": 1 }\n  ]\n}`}
                         className={styles.textarea}
                         style={{ width: '100%', fontFamily: 'monospace' }}
                       />
-
-                      <br />
-                      <button type="button" onClick={() => removeChapter(chapterKey)}>
-                        Remove Chapter
-                      </button>
                     </div>
                   );
                 })}
               </div>
 
-              <br />
-              <br />
-              <button type="button" onClick={addChapter}>
-                Add Chapter
-              </button>
-
-              <br />
-              <br />
-              <button type="submit">{id ? 'Update Narrative' : 'Create Narrative'}</button>
+              <div style={{ marginTop: '24px', paddingTop: '24px', borderTop: '1px solid #e9ecef' }}>
+                <button 
+                  type="button" 
+                  onClick={addChapter}
+                  style={{
+                    padding: '10px 20px',
+                    backgroundColor: '#007bff',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '5px',
+                    cursor: 'pointer',
+                    fontSize: '14px',
+                    fontWeight: '500',
+                    marginBottom: '16px'
+                  }}
+                >
+                  Add Chapter
+                </button>
+              </div>
             </div>
           </form>
         </div>

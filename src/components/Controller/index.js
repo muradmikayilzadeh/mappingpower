@@ -229,8 +229,16 @@ function Controller({
       return id;
     };
 
+    // Convert to array and sort by order field to maintain sequence
+    const chaptersEntries = Object.entries(selectedNarrative.chapters);
+    chaptersEntries.sort((a, b) => {
+      const orderA = a[1].order !== undefined ? a[1].order : 0;
+      const orderB = b[1].order !== undefined ? b[1].order : 0;
+      return orderA - orderB;
+    });
+
     // We need a second pass to collect modal HTMLs in same order we replace.
-    const chaptersArr = Object.entries(selectedNarrative.chapters).map(([cid, chap]) => {
+    const chaptersArr = chaptersEntries.map(([cid, chap]) => {
       // We'll use a temporary array to capture modal htmls in order of appearance
       const modalHtmls = [];
 
