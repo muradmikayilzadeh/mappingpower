@@ -18,10 +18,12 @@ function Controller({
 }) {
   const [chapters, setChapters] = useState([]);
   const [checkedMaps, setCheckedMaps] = useState({});
+  const [selectedMapsOrder, setSelectedMapsOrder] = useState([]); // Track selection order
   const [sliderValues, setSliderValues] = useState({});
   const [view, setView] = useState('maps');
   const [narratives, setNarratives] = useState([]);
   const [selectedNarrative, setSelectedNarrative] = useState(null);
+  const checkboxModifierStateRef = useRef({}); // Track modifier key state per checkbox
 
   // Footnote modal state
   const [footnoteOpen, setFootnoteOpen] = useState(false);
@@ -114,6 +116,16 @@ function Controller({
     fetchChaptersAndNarratives();
   }, []);
 
+  // Reset selection when switching to narratives view or when narrative is selected
+  useEffect(() => {
+    if (view === 'narratives' && selectedNarrative) {
+      // When viewing a narrative, maps are managed by the narrative chapters
+      // Clear manual selections to avoid confusion
+      setCheckedMaps({});
+      setSelectedMapsOrder([]);
+    }
+  }, [view, selectedNarrative]);
+
   const handleCheckboxChange = async (mapId, checked) => {
     try {
       const snap = await getDoc(doc(db, 'maps', mapId));
@@ -123,11 +135,42 @@ function Controller({
       }
       const mapDetails = { id: mapId, ...snap.data() };
 
+      // Check if modifier key was pressed during the click (Command on Mac, Control on PC)
+      const isModifierPressed = checkboxModifierStateRef.current[mapId] || false;
+      // Clear the stored state after use
+      delete checkboxModifierStateRef.current[mapId];
+      
       setCheckedMaps((prev) => {
-        const next = { ...prev, [mapId]: checked ? mapDetails : null };
-        const selected = Object.values(next)
+        let next = { ...prev };
+        let newOrder = [...selectedMapsOrder];
+
+        if (checked) {
+          // Adding a map
+          if (isModifierPressed) {
+            // Modifier pressed: single selection mode - clear all others
+            next = { [mapId]: mapDetails };
+            newOrder = [mapId];
+          } else {
+            // No modifier: multi-select mode - add to selection
+            next[mapId] = mapDetails;
+            // Only add to order if not already in the list
+            if (!newOrder.includes(mapId)) {
+              newOrder.push(mapId);
+            }
+          }
+        } else {
+          // Removing a map
+          next[mapId] = null;
+          newOrder = newOrder.filter(id => id !== mapId);
+        }
+
+        // Build selected array in order
+        const selected = newOrder
+          .map(id => next[id])
           .filter(Boolean)
           .map((m) => ({ ...m, opacity: (sliderValues[m.id] ?? 100) / 100 }));
+        
+        setSelectedMapsOrder(newOrder);
         onMapSelect(selected);
         return next;
       });
@@ -146,7 +189,9 @@ function Controller({
 
       if (onUpdateOpacity) onUpdateOpacity(mapId, pct);
 
-      const selected = Object.values(next)
+      // Build selected array in order
+      const selected = selectedMapsOrder
+        .map(id => next[id])
         .filter(Boolean)
         .map((m) => {
           const sliderPct = m.id === mapId ? pct : (sliderValues[m.id] ?? 100) / 100;
@@ -388,6 +433,10 @@ function Controller({
                                 ${chapter.indented?.includes(map.id) ? styles.indentedText : ''}
                                 ${checked ? styles.redCheckBox : ''}
                               `}
+                              onClick={(e) => {
+                                // Store modifier key state for this checkbox
+                                checkboxModifierStateRef.current[map.id] = e.metaKey || e.ctrlKey;
+                              }}
                               onChange={(e) => handleCheckboxChange(map.id, e.target.checked)}
                               checked={checked}
                             />

@@ -128,6 +128,123 @@
   border: 1px solid #ddd;
   border-radius: 5px;
   background-color: #fff;
+  min-height: 250px;
+  height: auto;
+}
+
+.scrollableTable {
+  width: 100%;
+  max-height: 300px;
+  overflow-y: auto;
+  border: 1px solid #ddd;
+  border-radius: 5px;
+  background-color: #fff;
+}
+
+.selectionTable {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.selectionTable thead {
+  position: sticky;
+  top: 0;
+  background-color: #f8f9fa;
+  z-index: 10;
+}
+
+.selectionTable th {
+  padding: 12px;
+  text-align: left;
+  border-bottom: 2px solid #ddd;
+  font-weight: 600;
+  background-color: #f8f9fa;
+}
+
+.selectionTable td {
+  padding: 10px 12px;
+  border-bottom: 1px solid #eee;
+}
+
+.selectionTable tbody tr:hover {
+  background-color: #f5f5f5;
+}
+
+.selectionTable tbody tr.selectedRow {
+  background-color: #e8f5e9;
+}
+
+.addButton {
+  padding: 6px 12px;
+  background-color: #007bff;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 14px;
+  transition: background-color 0.2s;
+}
+
+.addButton:hover {
+  background-color: #0056b3;
+}
+
+.addedBadge {
+  padding: 6px 12px;
+  background-color: #28a745;
+  color: white;
+  border-radius: 4px;
+  font-size: 14px;
+  display: inline-block;
+}
+
+.searchInput {
+  width: 100%;
+  padding: 8px 12px;
+  margin-bottom: 10px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  font-size: 14px;
+  box-sizing: border-box;
+}
+
+.searchInput:focus {
+  outline: none;
+  border-color: #007bff;
+  box-shadow: 0 0 0 2px rgba(0, 123, 255, 0.25);
+}
+
+.emptyMessage {
+  color: #666;
+  font-style: italic;
+  padding: 10px;
+  background-color: #f8f9fa;
+  border-radius: 4px;
+}
+
+.orderingButtons {
+  display: flex;
+  gap: 5px;
+  align-items: center;
+}
+
+.orderingButtons button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.removeButton {
+  background-color: #dc3545 !important;
+  color: white;
+  border: none;
+  border-radius: 5px;
+  padding: 5px 10px;
+  cursor: pointer;
+  transition: background-color 0.3s ease;
+}
+
+.removeButton:hover {
+  background-color: #c82333 !important;
 }
 
 .richTextEditor {

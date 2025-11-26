@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import Editor from 'react-simple-wysiwyg';
-import { faHome, faMap, faBook, faCog, faTimeline } from '@fortawesome/free-solid-svg-icons';
+import { faHome, faMap, faBook, faCog, faTimeline, faArrowUp, faArrowDown } from '@fortawesome/free-solid-svg-icons';
 import { collection, getDocs, addDoc, doc, getDoc, updateDoc } from 'firebase/firestore';
 import { db } from '../../../../firebase'; // Ensure this path is correct based on your project structure
 import styles from '../style.module.css';
@@ -16,6 +16,8 @@ const CreateEraPage = () => {
   const [selectedMaps, setSelectedMaps] = useState([]);
   const [selectedMapGroups, setSelectedMapGroups] = useState([]);
   const [indented, setIndented] = useState([]);
+  const [mapSearchTerm, setMapSearchTerm] = useState('');
+  const [mapGroupSearchTerm, setMapGroupSearchTerm] = useState('');
   const navigate = useNavigate();
   const { id } = useParams();
   const [loading, setLoading] = useState(true);
@@ -85,19 +87,24 @@ const CreateEraPage = () => {
     }
   };
 
-  const handleSelectionChange = (e) => {
-    const options = e.target.options;
-    const selected = [];
-    for (const option of options) {
-      if (option.selected) {
-        selected.push(option.value);
-      }
+  const handleAddMap = (mapId) => {
+    if (!selectedMaps.includes(mapId)) {
+      setSelectedMaps([...selectedMaps, mapId]);
     }
-    if (e.target.name === 'maps') {
-      setSelectedMaps(selected);
-    } else if (e.target.name === 'map_groups') {
-      setSelectedMapGroups(selected);
+  };
+
+  const handleAddMapGroup = (mapGroupId) => {
+    if (!selectedMapGroups.includes(mapGroupId)) {
+      setSelectedMapGroups([...selectedMapGroups, mapGroupId]);
     }
+  };
+
+  const handleRemoveMap = (mapId) => {
+    setSelectedMaps(selectedMaps.filter(id => id !== mapId));
+  };
+
+  const handleRemoveMapGroup = (mapGroupId) => {
+    setSelectedMapGroups(selectedMapGroups.filter(id => id !== mapGroupId));
   };
 
   const handleHtmlChange = (e) => {
@@ -176,58 +183,339 @@ const CreateEraPage = () => {
 
               <br /><br />
 
-              {/* Multiple select options to choose maps and map groups */}
+              {/* Scrollable table for selecting maps */}
               <label htmlFor="maps">Maps</label>
-              <select className={styles.multipleSelect} name="maps" id="maps" multiple onChange={handleSelectionChange} value={selectedMaps}>
-                {mapEntries.map((entry) => (
-                  <option key={entry.id} value={entry.id}>{entry.title}</option>
-                ))}
-              </select>
+              <input
+                type="text"
+                placeholder="Search maps..."
+                value={mapSearchTerm}
+                onChange={(e) => setMapSearchTerm(e.target.value)}
+                className={styles.searchInput}
+              />
+              <div className={styles.scrollableTable}>
+                <table className={styles.selectionTable}>
+                  <thead>
+                    <tr>
+                      <th>Title</th>
+                      <th>Action</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {mapEntries
+                      .filter(entry => 
+                        entry.title.toLowerCase().includes(mapSearchTerm.toLowerCase())
+                      )
+                      .map((entry) => {
+                        const isSelected = selectedMaps.includes(entry.id);
+                        return (
+                          <tr key={entry.id} className={isSelected ? styles.selectedRow : ''}>
+                            <td>{entry.title}</td>
+                            <td>
+                              {isSelected ? (
+                                <button
+                                  type="button"
+                                  onClick={() => handleRemoveMap(entry.id)}
+                                  className={styles.removeButton}
+                                >
+                                  Remove
+                                </button>
+                              ) : (
+                                <button
+                                  type="button"
+                                  onClick={() => handleAddMap(entry.id)}
+                                  className={styles.addButton}
+                                >
+                                  Add
+                                </button>
+                              )}
+                            </td>
+                          </tr>
+                        );
+                      })}
+                  </tbody>
+                </table>
+              </div>
 
               <br /><br />
 
+              {/* Scrollable table for selecting map groups */}
               <label htmlFor="map_groups">Map Groups</label>
-              <select className={styles.multipleSelect} name="map_groups" id="map_groups" multiple onChange={handleSelectionChange} value={selectedMapGroups}>
-                {mapGroupEntries.map((entry) => (
-                  <option key={entry.id} value={entry.id}>{entry.title}</option>
-                ))}
-              </select>
+              <input
+                type="text"
+                placeholder="Search map groups..."
+                value={mapGroupSearchTerm}
+                onChange={(e) => setMapGroupSearchTerm(e.target.value)}
+                className={styles.searchInput}
+              />
+              <div className={styles.scrollableTable}>
+                <table className={styles.selectionTable}>
+                  <thead>
+                    <tr>
+                      <th>Title</th>
+                      <th>Action</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {mapGroupEntries
+                      .filter(entry => 
+                        entry.title.toLowerCase().includes(mapGroupSearchTerm.toLowerCase())
+                      )
+                      .map((entry) => {
+                        const isSelected = selectedMapGroups.includes(entry.id);
+                        return (
+                          <tr key={entry.id} className={isSelected ? styles.selectedRow : ''}>
+                            <td>{entry.title}</td>
+                            <td>
+                              {isSelected ? (
+                                <button
+                                  type="button"
+                                  onClick={() => handleRemoveMapGroup(entry.id)}
+                                  className={styles.removeButton}
+                                >
+                                  Remove
+                                </button>
+                              ) : (
+                                <button
+                                  type="button"
+                                  onClick={() => handleAddMapGroup(entry.id)}
+                                  className={styles.addButton}
+                                >
+                                  Add
+                                </button>
+                              )}
+                            </td>
+                          </tr>
+                        );
+                      })}
+                  </tbody>
+                </table>
+              </div>
 
               <br /><br />
 
               {/* Section for displaying and reordering selected maps and map groups */}
               <div className={styles.orderingSection}>
                 <h3>Selected Maps</h3>
-                {selectedMaps.map((map, index) => (
-                  <div key={map} className={styles.orderingItem}>
-                    <span>{mapEntries.find(entry => entry.id === map)?.title || map}</span>
-                    <button type="button" onClick={() => moveItem(index, -1, 'maps')}>Up</button>
-                    <button type="button" onClick={() => moveItem(index, 1, 'maps')}>Down</button>
-                    <button 
-                      type="button" 
-                      onClick={() => toggleIndentation(map, 'maps')}
-                      className={isIndented(map) ? styles.indented : ''}
-                    >
-                      Indentation
-                    </button>
-                  </div>
-                ))}
+                {selectedMaps.length === 0 ? (
+                  <p className={styles.emptyMessage}>No maps selected. Add maps from the table above.</p>
+                ) : (
+                  selectedMaps.map((map, index) => {
+                    const isFirst = index === 0;
+                    const isLast = index === selectedMaps.length - 1;
+                    return (
+                      <div key={map} className={styles.orderingItem}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginRight: '12px', flexShrink: 0 }}>
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.preventDefault();
+                              e.stopPropagation();
+                              moveItem(index, -1, 'maps');
+                            }}
+                            disabled={isFirst}
+                            style={{
+                              padding: '6px 10px',
+                              fontSize: '12px',
+                              border: isFirst ? '1px solid #e0e0e0' : '1px solid #d0d0d0',
+                              borderRadius: '4px',
+                              backgroundColor: isFirst ? '#f5f5f5' : '#ffffff',
+                              color: isFirst ? '#999' : '#333',
+                              cursor: isFirst ? 'not-allowed' : 'pointer',
+                              transition: 'all 0.2s',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              minWidth: '36px',
+                              opacity: isFirst ? 0.5 : 1
+                            }}
+                            onMouseEnter={(e) => {
+                              if (!isFirst && !e.target.disabled) {
+                                e.target.style.backgroundColor = '#f0f0f0';
+                                e.target.style.borderColor = '#b0b0b0';
+                              }
+                            }}
+                            onMouseLeave={(e) => {
+                              if (!isFirst && !e.target.disabled) {
+                                e.target.style.backgroundColor = '#ffffff';
+                                e.target.style.borderColor = '#d0d0d0';
+                              }
+                            }}
+                            title={isFirst ? 'Already at top' : 'Move up'}
+                          >
+                            <FontAwesomeIcon icon={faArrowUp} style={{ fontSize: '11px' }} />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.preventDefault();
+                              e.stopPropagation();
+                              moveItem(index, 1, 'maps');
+                            }}
+                            disabled={isLast}
+                            style={{
+                              padding: '6px 10px',
+                              fontSize: '12px',
+                              border: isLast ? '1px solid #e0e0e0' : '1px solid #d0d0d0',
+                              borderRadius: '4px',
+                              backgroundColor: isLast ? '#f5f5f5' : '#ffffff',
+                              color: isLast ? '#999' : '#333',
+                              cursor: isLast ? 'not-allowed' : 'pointer',
+                              transition: 'all 0.2s',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              minWidth: '36px',
+                              opacity: isLast ? 0.5 : 1
+                            }}
+                            onMouseEnter={(e) => {
+                              if (!isLast && !e.target.disabled) {
+                                e.target.style.backgroundColor = '#f0f0f0';
+                                e.target.style.borderColor = '#b0b0b0';
+                              }
+                            }}
+                            onMouseLeave={(e) => {
+                              if (!isLast && !e.target.disabled) {
+                                e.target.style.backgroundColor = '#ffffff';
+                                e.target.style.borderColor = '#d0d0d0';
+                              }
+                            }}
+                            title={isLast ? 'Already at bottom' : 'Move down'}
+                          >
+                            <FontAwesomeIcon icon={faArrowDown} style={{ fontSize: '11px' }} />
+                          </button>
+                        </div>
+                        <span style={{ flexGrow: 1, marginRight: '10px' }}>{mapEntries.find(entry => entry.id === map)?.title || map}</span>
+                        <div className={styles.orderingButtons}>
+                          <button 
+                            type="button" 
+                            onClick={() => toggleIndentation(map, 'maps')}
+                            className={isIndented(map) ? styles.indented : ''}
+                          >
+                            Indentation
+                          </button>
+                          <button 
+                            type="button" 
+                            onClick={() => handleRemoveMap(map)}
+                            className={styles.removeButton}
+                          >
+                            Remove
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })
+                )}
 
                 <h3>Selected Map Groups</h3>
-                {selectedMapGroups.map((mapGroup, index) => (
-                  <div key={mapGroup} className={styles.orderingItem}>
-                    <span>{mapGroupEntries.find(entry => entry.id === mapGroup)?.title || mapGroup}</span>
-                    <button type="button" onClick={() => moveItem(index, -1, 'mapGroups')}>Up</button>
-                    <button type="button" onClick={() => moveItem(index, 1, 'mapGroups')}>Down</button>
-                    <button 
-                      type="button" 
-                      onClick={() => toggleIndentation(mapGroup, 'mapGroups')}
-                      className={isIndented(mapGroup) ? styles.indented : ''}
-                    >
-                      Indentation
-                    </button>
-                  </div>
-                ))}
+                {selectedMapGroups.length === 0 ? (
+                  <p className={styles.emptyMessage}>No map groups selected. Add map groups from the table above.</p>
+                ) : (
+                  selectedMapGroups.map((mapGroup, index) => {
+                    const isFirst = index === 0;
+                    const isLast = index === selectedMapGroups.length - 1;
+                    return (
+                      <div key={mapGroup} className={styles.orderingItem}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginRight: '12px', flexShrink: 0 }}>
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.preventDefault();
+                              e.stopPropagation();
+                              moveItem(index, -1, 'mapGroups');
+                            }}
+                            disabled={isFirst}
+                            style={{
+                              padding: '6px 10px',
+                              fontSize: '12px',
+                              border: isFirst ? '1px solid #e0e0e0' : '1px solid #d0d0d0',
+                              borderRadius: '4px',
+                              backgroundColor: isFirst ? '#f5f5f5' : '#ffffff',
+                              color: isFirst ? '#999' : '#333',
+                              cursor: isFirst ? 'not-allowed' : 'pointer',
+                              transition: 'all 0.2s',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              minWidth: '36px',
+                              opacity: isFirst ? 0.5 : 1
+                            }}
+                            onMouseEnter={(e) => {
+                              if (!isFirst && !e.target.disabled) {
+                                e.target.style.backgroundColor = '#f0f0f0';
+                                e.target.style.borderColor = '#b0b0b0';
+                              }
+                            }}
+                            onMouseLeave={(e) => {
+                              if (!isFirst && !e.target.disabled) {
+                                e.target.style.backgroundColor = '#ffffff';
+                                e.target.style.borderColor = '#d0d0d0';
+                              }
+                            }}
+                            title={isFirst ? 'Already at top' : 'Move up'}
+                          >
+                            <FontAwesomeIcon icon={faArrowUp} style={{ fontSize: '11px' }} />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.preventDefault();
+                              e.stopPropagation();
+                              moveItem(index, 1, 'mapGroups');
+                            }}
+                            disabled={isLast}
+                            style={{
+                              padding: '6px 10px',
+                              fontSize: '12px',
+                              border: isLast ? '1px solid #e0e0e0' : '1px solid #d0d0d0',
+                              borderRadius: '4px',
+                              backgroundColor: isLast ? '#f5f5f5' : '#ffffff',
+                              color: isLast ? '#999' : '#333',
+                              cursor: isLast ? 'not-allowed' : 'pointer',
+                              transition: 'all 0.2s',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              minWidth: '36px',
+                              opacity: isLast ? 0.5 : 1
+                            }}
+                            onMouseEnter={(e) => {
+                              if (!isLast && !e.target.disabled) {
+                                e.target.style.backgroundColor = '#f0f0f0';
+                                e.target.style.borderColor = '#b0b0b0';
+                              }
+                            }}
+                            onMouseLeave={(e) => {
+                              if (!isLast && !e.target.disabled) {
+                                e.target.style.backgroundColor = '#ffffff';
+                                e.target.style.borderColor = '#d0d0d0';
+                              }
+                            }}
+                            title={isLast ? 'Already at bottom' : 'Move down'}
+                          >
+                            <FontAwesomeIcon icon={faArrowDown} style={{ fontSize: '11px' }} />
+                          </button>
+                        </div>
+                        <span style={{ flexGrow: 1, marginRight: '10px' }}>{mapGroupEntries.find(entry => entry.id === mapGroup)?.title || mapGroup}</span>
+                        <div className={styles.orderingButtons}>
+                          <button 
+                            type="button" 
+                            onClick={() => toggleIndentation(mapGroup, 'mapGroups')}
+                            className={isIndented(mapGroup) ? styles.indented : ''}
+                          >
+                            Indentation
+                          </button>
+                          <button 
+                            type="button" 
+                            onClick={() => handleRemoveMapGroup(mapGroup)}
+                            className={styles.removeButton}
+                          >
+                            Remove
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })
+                )}
               </div>
 
               <br /><br />

@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faHome, faMap, faBook, faCog, faEdit, faTimes, faTimeline } from '@fortawesome/free-solid-svg-icons';
+import { faHome, faMap, faBook, faCog, faEdit, faTimes, faTimeline, faArrowUp, faArrowDown } from '@fortawesome/free-solid-svg-icons';
 import { db } from '../../../firebase';
 import { collection, getDocs, deleteDoc, doc, updateDoc } from 'firebase/firestore';
 import styles from './style.module.css';
@@ -110,20 +110,102 @@ const ErasPage = () => {
         </div>
         <div className={styles.itemList}>
           {filteredEras.length > 0 ? (
-            filteredEras.map((era, index) => (
-              <div key={era.id} className={styles.itemEntry}>
-                <div className={styles.itemDetails}>
-                  <h2>{era.title}</h2>
-                  <p dangerouslySetInnerHTML={{ __html: era.description }} />
+            filteredEras.map((era, index) => {
+              const isFirst = index === 0;
+              const isLast = index === filteredEras.length - 1;
+              return (
+                <div key={era.id} className={styles.itemEntry}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginRight: '12px', flexShrink: 0 }}>
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        handleMove(index, 'up');
+                      }}
+                      disabled={isFirst}
+                      style={{
+                        padding: '6px 10px',
+                        fontSize: '12px',
+                        border: isFirst ? '1px solid #e0e0e0' : '1px solid #d0d0d0',
+                        borderRadius: '4px',
+                        backgroundColor: isFirst ? '#f5f5f5' : '#ffffff',
+                        color: isFirst ? '#999' : '#333',
+                        cursor: isFirst ? 'not-allowed' : 'pointer',
+                        transition: 'all 0.2s',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        minWidth: '36px',
+                        opacity: isFirst ? 0.5 : 1
+                      }}
+                      onMouseEnter={(e) => {
+                        if (!isFirst && !e.target.disabled) {
+                          e.target.style.backgroundColor = '#f0f0f0';
+                          e.target.style.borderColor = '#b0b0b0';
+                        }
+                      }}
+                      onMouseLeave={(e) => {
+                        if (!isFirst && !e.target.disabled) {
+                          e.target.style.backgroundColor = '#ffffff';
+                          e.target.style.borderColor = '#d0d0d0';
+                        }
+                      }}
+                      title={isFirst ? 'Already at top' : 'Move up'}
+                    >
+                      <FontAwesomeIcon icon={faArrowUp} style={{ fontSize: '11px' }} />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        handleMove(index, 'down');
+                      }}
+                      disabled={isLast}
+                      style={{
+                        padding: '6px 10px',
+                        fontSize: '12px',
+                        border: isLast ? '1px solid #e0e0e0' : '1px solid #d0d0d0',
+                        borderRadius: '4px',
+                        backgroundColor: isLast ? '#f5f5f5' : '#ffffff',
+                        color: isLast ? '#999' : '#333',
+                        cursor: isLast ? 'not-allowed' : 'pointer',
+                        transition: 'all 0.2s',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        minWidth: '36px',
+                        opacity: isLast ? 0.5 : 1
+                      }}
+                      onMouseEnter={(e) => {
+                        if (!isLast && !e.target.disabled) {
+                          e.target.style.backgroundColor = '#f0f0f0';
+                          e.target.style.borderColor = '#b0b0b0';
+                        }
+                      }}
+                      onMouseLeave={(e) => {
+                        if (!isLast && !e.target.disabled) {
+                          e.target.style.backgroundColor = '#ffffff';
+                          e.target.style.borderColor = '#d0d0d0';
+                        }
+                      }}
+                      title={isLast ? 'Already at bottom' : 'Move down'}
+                    >
+                      <FontAwesomeIcon icon={faArrowDown} style={{ fontSize: '11px' }} />
+                    </button>
+                  </div>
+                  <div className={styles.itemDetails}>
+                    <h2>{era.title}</h2>
+                    <p dangerouslySetInnerHTML={{ __html: era.description }} />
+                  </div>
+                  <div className={styles.itemActions}>
+                    <button onClick={() => navigate(`/edit-era/${era.id}`)}><FontAwesomeIcon icon={faEdit} /></button>
+                    <button onClick={() => handleDelete(era.id)}><FontAwesomeIcon icon={faTimes} /></button>
+                  </div>
                 </div>
-                <div className={styles.itemActions}>
-                  <button onClick={() => handleMove(index, 'up')}>Up</button>
-                  <button onClick={() => handleMove(index, 'down')}>Down</button>
-                  <button onClick={() => navigate(`/edit-era/${era.id}`)}><FontAwesomeIcon icon={faEdit} /></button>
-                  <button onClick={() => handleDelete(era.id)}><FontAwesomeIcon icon={faTimes} /></button>
-                </div>
-              </div>
-            ))
+              );
+            })
           ) : (
             <p>No era found</p>
           )}

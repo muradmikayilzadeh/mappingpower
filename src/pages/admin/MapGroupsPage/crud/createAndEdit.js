@@ -16,6 +16,7 @@ const CreateMapGroupPage = () => {
   const [title, setTitle] = useState('');
   const [years, setYears] = useState('');
   const [selectedMaps, setSelectedMaps] = useState([]);
+  const [mapSearchTerm, setMapSearchTerm] = useState('');
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -73,15 +74,14 @@ const CreateMapGroupPage = () => {
     }
   };
 
-  const handleMapSelection = (e) => {
-    const options = e.target.options;
-    const selected = [];
-    for (const option of options) {
-      if (option.selected) {
-        selected.push(option.value);
-      }
+  const handleAddMap = (mapId) => {
+    if (!selectedMaps.includes(mapId)) {
+      setSelectedMaps([...selectedMaps, mapId]);
     }
-    setSelectedMaps(selected);
+  };
+
+  const handleRemoveMap = (mapId) => {
+    setSelectedMaps(selectedMaps.filter(id => id !== mapId));
   };
 
   const onChange = (e) => {
@@ -131,16 +131,83 @@ const CreateMapGroupPage = () => {
 
               <br></br>
 
-              {/* Multiple select options to choose maps from */}
+              {/* Scrollable table for selecting maps */}
               <label htmlFor="maps">Maps</label>
-              <select className={styles.multipleSelect} name="maps" id="maps" multiple onChange={handleMapSelection} value={selectedMaps}>
-                {mapEntries.map((entry) => (
-                  <option key={entry.id} value={entry.id}>{entry.title}</option>
-                ))}
-              </select>
+              <input
+                type="text"
+                placeholder="Search maps..."
+                value={mapSearchTerm}
+                onChange={(e) => setMapSearchTerm(e.target.value)}
+                className={styles.searchInput}
+              />
+              <div className={styles.scrollableTable}>
+                <table className={styles.selectionTable}>
+                  <thead>
+                    <tr>
+                      <th>Title</th>
+                      <th>Action</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {mapEntries
+                      .filter(entry => 
+                        entry.title.toLowerCase().includes(mapSearchTerm.toLowerCase())
+                      )
+                      .map((entry) => {
+                        const isSelected = selectedMaps.includes(entry.id);
+                        return (
+                          <tr key={entry.id} className={isSelected ? styles.selectedRow : ''}>
+                            <td>{entry.title}</td>
+                            <td>
+                              {isSelected ? (
+                                <button
+                                  type="button"
+                                  onClick={() => handleRemoveMap(entry.id)}
+                                  className={styles.removeButton}
+                                >
+                                  Remove
+                                </button>
+                              ) : (
+                                <button
+                                  type="button"
+                                  onClick={() => handleAddMap(entry.id)}
+                                  className={styles.addButton}
+                                >
+                                  Add
+                                </button>
+                              )}
+                            </td>
+                          </tr>
+                        );
+                      })}
+                  </tbody>
+                </table>
+              </div>
 
-              <br></br>
-              <br></br>
+              <br /><br />
+
+              {/* Section for displaying selected maps */}
+              <div className={styles.orderingSection}>
+                <h3>Selected Maps</h3>
+                {selectedMaps.length === 0 ? (
+                  <p className={styles.emptyMessage}>No maps selected. Add maps from the table above.</p>
+                ) : (
+                  selectedMaps.map((mapId) => (
+                    <div key={mapId} className={styles.orderingItem}>
+                      <span>{mapEntries.find(entry => entry.id === mapId)?.title || mapId}</span>
+                      <button 
+                        type="button" 
+                        onClick={() => handleRemoveMap(mapId)}
+                        className={styles.removeButton}
+                      >
+                        Remove
+                      </button>
+                    </div>
+                  ))
+                )}
+              </div>
+
+              <br /><br />
               <button type="submit">{id ? 'Update Map Group' : 'Create Map Group'}</button>
             </div>
           </form>
