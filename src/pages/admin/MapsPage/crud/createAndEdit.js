@@ -374,16 +374,20 @@ const CreateMapPage = () => {
                     <br />
                     <label htmlFor="imageBounds">Image Bounds Coordinates</label>
                     <div className={styles.coordinateInputs}>
-                      <input type="text" name="x1y1" placeholder='x1,y1' value={coordinates.x1y1} onChange={handleCoordinateChange} />
+                      <label htmlFor="x1y1">West, North</label>
+                      <input type="text" name="x1y1" id="x1y1" placeholder='x1,y1' value={coordinates.x1y1} onChange={handleCoordinateChange} />
                       <br />
                       <br />
-                      <input type="text" name="x2y2" placeholder='x2,y2' value={coordinates.x2y2} onChange={handleCoordinateChange} />
+                      <label htmlFor="x2y2">East, North</label>
+                      <input type="text" name="x2y2" id="x2y2" placeholder='x2,y2' value={coordinates.x2y2} onChange={handleCoordinateChange} />
                       <br />
                       <br />
-                      <input type="text" name="x3y3" placeholder='x3y3' value={coordinates.x3y3} onChange={handleCoordinateChange} />
+                      <label htmlFor="x3y3">East, South</label>
+                      <input type="text" name="x3y3" id="x3y3" placeholder='x3y3' value={coordinates.x3y3} onChange={handleCoordinateChange} />
                       <br />
                       <br /> 
-                      <input type="text" name="x4y4" placeholder='x4y4' value={coordinates.x4y4} onChange={handleCoordinateChange} />
+                      <label htmlFor="x4y4">West, South</label>
+                      <input type="text" name="x4y4" id="x4y4" placeholder='x4y4' value={coordinates.x4y4} onChange={handleCoordinateChange} />
                     </div>
                     <br />
                     <label>Rotation: {rotation} degrees</label>
