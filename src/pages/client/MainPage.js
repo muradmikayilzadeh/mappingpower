@@ -1,5 +1,5 @@
 import * as maptilersdk from '@maptiler/sdk';
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { doc, getDoc } from 'firebase/firestore';
 import { db } from '../../firebase';
 import Navbar from '../../components/Navbar';
@@ -15,6 +15,7 @@ const MainPage = () => {
   const [mapStyle, setMapStyle] = useState(maptilersdk.MapStyle.BASIC.LIGHT);
   const [selectedNarrative, setSelectedNarrative] = useState(null);
   const [activeChapter, setActiveChapter] = useState(null);
+  const [isMapLoading, setIsMapLoading] = useState(false);
 
   // Function to update opacity (provided by <Map />)
   const [updateOpacityFn, setUpdateOpacityFn] = useState(() => () => {});
@@ -22,6 +23,8 @@ const MainPage = () => {
   const [flyToLocationFn, setFlyToLocationFn] = useState(null);
   // Current map view state for minimap
   const [mapView, setMapView] = useState({ center: { lng: -122.4194, lat: 37.7749 }, zoom: 12 });
+  // Track previous narrative to detect exit
+  const prevNarrativeRef = useRef(null);
 
   const fetchContent = async (field) => {
     try {
@@ -43,7 +46,17 @@ const MainPage = () => {
   };
 
   const handleMapSelect = (maps) => {
-    setSelectedMaps(maps);
+    // Set loading state when maps are being selected
+    if (maps && maps.length > 0) {
+      setIsMapLoading(true);
+      // Set maps first, then clear loading after a delay to allow rendering
+      setSelectedMaps(maps);
+      setTimeout(() => setIsMapLoading(false), 400);
+    } else {
+      // Clear maps immediately if no maps selected
+      setSelectedMaps([]);
+      setIsMapLoading(false);
+    }
   };
 
   const handleOpacityChange = (mapId, opacity) => {
@@ -89,6 +102,171 @@ const MainPage = () => {
   const closeModal = () => {
     setModalData({ isOpen: false, title: '', content: '' });
   };
+
+  // When exiting a narrative, reset map to default location from settings
+  useEffect(() => {
+    // Only reset if we had a narrative before and now we don't (exiting narrative)
+    const hadNarrative = prevNarrativeRef.current !== null;
+    const hasNarrative = selectedNarrative !== null;
+    
+    if (hadNarrative && !hasNarrative && flyToLocationFn) {
+      const resetToDefaultLocation = async () => {
+        try {
+          const docRef = doc(db, 'settings', 'settingsData');
+          const docSnap = await getDoc(docRef);
+          if (docSnap.exists()) {
+            const data = docSnap.data();
+            const { geolocation, mapZoom } = data;
+            
+            if (geolocation && Array.isArray(geolocation) && geolocation.length === 2) {
+              // Settings store geolocation as [lat, lng], but flyToLocation expects [lng, lat]
+              const [lat, lng] = geolocation;
+              const zoom = typeof mapZoom === 'number' ? mapZoom : 10;
+              flyToLocationFn([lng, lat], zoom);
+            }
+          }
+        } catch (e) {
+          console.error('Error fetching settings for default location:', e);
+        }
+      };
+
+      resetToDefaultLocation();
+      setSelectedMaps([]);
+      setActiveChapter(null);
+    }
+    
+    // Update ref for next render
+    prevNarrativeRef.current = selectedNarrative;
+  }, [selectedNarrative, flyToLocationFn]);
+
+  // Preload all images and map data for narrative chapters
+  useEffect(() => {
+    if (!selectedNarrative || !selectedNarrative.chapters) return;
+
+    const preloadNarrativeContent = async () => {
+      console.log('=== PRELOADING NARRATIVE CONTENT ===');
+      const chapters = selectedNarrative.chapters;
+      const imageUrls = new Set();
+      
+      // Helper function to decode HTML entities
+      const decodeHtml = (str) => {
+        if (!str) return '';
+        return String(str)
+          .replace(/&lt;/g, '<')
+          .replace(/&gt;/g, '>')
+          .replace(/&amp;/g, '&')
+          .replace(/&quot;/g, '"')
+          .replace(/&#39;/g, "'");
+      };
+
+      // Extract all image URLs from chapter content and footnotes
+      Object.values(chapters).forEach((chapter) => {
+        if (!chapter.content) return;
+        
+        // Decode HTML entities first
+        const decodedContent = decodeHtml(chapter.content);
+        
+        // Extract img src attributes (handles both single and double quotes)
+        const imgRegex = /<img[^>]+src\s*=\s*["']([^"']+)["']/gi;
+        let match;
+        while ((match = imgRegex.exec(decodedContent)) !== null) {
+          if (match[1]) {
+            imageUrls.add(match[1]);
+          }
+        }
+        
+        // Also extract images from footnote content
+        const footnoteRegex = /<footnote\b[^>]*>([\s\S]*?)<\/footnote\s*>/gi;
+        let footnoteMatch;
+        while ((footnoteMatch = footnoteRegex.exec(decodedContent)) !== null) {
+          const footnoteContent = footnoteMatch[1];
+          const contentMatch = /<content\b[^>]*>([\s\S]*?)<\/content\s*>/i.exec(footnoteContent);
+          if (contentMatch) {
+            const footnoteHtml = decodeHtml(contentMatch[1]);
+            const footnoteImgRegex = /<img[^>]+src\s*=\s*["']([^"']+)["']/gi;
+            let footnoteImgMatch;
+            while ((footnoteImgMatch = footnoteImgRegex.exec(footnoteHtml)) !== null) {
+              if (footnoteImgMatch[1]) {
+                imageUrls.add(footnoteImgMatch[1]);
+              }
+            }
+          }
+        }
+      });
+
+      // Preload all images
+      console.log(`Preloading ${imageUrls.size} images...`);
+      const imagePromises = Array.from(imageUrls).map((url) => {
+        return new Promise((resolve) => {
+          // Skip data URIs and empty URLs
+          if (!url || url.startsWith('data:')) {
+            resolve(url);
+            return;
+          }
+          
+          const img = new Image();
+          img.onload = () => resolve(url);
+          img.onerror = () => {
+            console.warn(`Failed to preload image: ${url}`);
+            resolve(url); // Resolve anyway to not block other images
+          };
+          img.src = url;
+        });
+      });
+      await Promise.all(imagePromises);
+      console.log('All images preloaded');
+
+      // Preload all map data for all chapters
+      const allMapIds = new Set();
+      Object.values(chapters).forEach((chapter) => {
+        if (chapter.maps && Array.isArray(chapter.maps)) {
+          chapter.maps.forEach((mapRef) => {
+            if (mapRef.id) {
+              allMapIds.add(mapRef.id);
+            }
+          });
+        }
+      });
+
+      console.log(`Preloading ${allMapIds.size} maps...`);
+      const mapPromises = Array.from(allMapIds).map(async (mapId) => {
+        try {
+          const snap = await getDoc(doc(db, 'maps', mapId));
+          if (snap.exists()) {
+            return { id: mapId, data: snap.data() };
+          }
+          return null;
+        } catch (e) {
+          console.error(`Error preloading map ${mapId}:`, e);
+          return null;
+        }
+      });
+      await Promise.all(mapPromises);
+      console.log('All maps preloaded');
+      console.log('=== PRELOADING COMPLETE ===');
+    };
+
+    preloadNarrativeContent();
+  }, [selectedNarrative]);
+
+  // Track loading state when maps are selected/deselected (only for controller maps, not narratives)
+  useEffect(() => {
+    // Only show loading for maps selected through controller, not narratives
+    if (selectedNarrative) {
+      setIsMapLoading(false);
+      return;
+    }
+
+    // Show loading when maps change (when user selects/deselects maps in controller)
+    if (selectedMaps && selectedMaps.length > 0) {
+      setIsMapLoading(true);
+      // Clear loading after a delay to allow map rendering
+      const timer = setTimeout(() => setIsMapLoading(false), 500);
+      return () => clearTimeout(timer);
+    } else {
+      setIsMapLoading(false);
+    }
+  }, [selectedMaps, selectedNarrative]);
 
   // If a narrative is selected and we don't yet have an active chapter,
   // initialize it to the first chapter key so that center/zoom/maps apply immediately.
@@ -156,6 +334,7 @@ const MainPage = () => {
         onUpdateOpacity={setUpdateOpacityFn}
         onFlyToLocation={setFlyToLocationFn}
         onMapViewChange={(center, zoom) => setMapView({ center, zoom })}
+        isMapLoading={isMapLoading}
       />
 
       {/* Left/Right Panels */}

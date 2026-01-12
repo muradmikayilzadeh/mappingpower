@@ -205,6 +205,9 @@ function Controller({
 
   const handleInfoClick = (desc) => onInfoClick(desc);
   const handleNarrativeSelect = (narr) => {
+    console.log('=== NARRATIVE SELECTED ===');
+    console.log('Full Narrative JSON:', JSON.stringify(narr, null, 2));
+    console.log('Narrative Object:', narr);
     setSelectedNarrative(narr);
     onNarrativeSelect(narr);
   };
@@ -324,22 +327,60 @@ function Controller({
 
   // Active chapter tracking
   useEffect(() => {
+    if (!selectedNarrative || !narrativeRef.current) return;
+
+    const sections = narrativeRef.current.querySelectorAll('section');
+    if (sections.length === 0) return;
+
+    let currentActiveId = null;
+
     const obs = new IntersectionObserver(
       (entries) => {
+        // Find the entry with the highest intersection ratio
+        let bestEntry = null;
+        let bestRatio = 0;
+
         entries.forEach((entry) => {
-          if (entry.isIntersecting) onActiveChapterChange(entry.target.id);
+          if (entry.isIntersecting && entry.intersectionRatio > bestRatio) {
+            bestRatio = entry.intersectionRatio;
+            bestEntry = entry;
+          }
         });
+
+        // Only activate if we have a clear winner (at least 60% visible) and it's different from current
+        if (bestEntry && bestRatio >= 0.6) {
+          const chapterId = bestEntry.target.id;
+          
+          // Only update if it's a different chapter to prevent unnecessary updates
+          if (chapterId !== currentActiveId) {
+            currentActiveId = chapterId;
+            
+            console.log('=== CHAPTER ACTIVATED ===');
+            console.log('Chapter ID:', chapterId);
+            
+            if (selectedNarrative && selectedNarrative.chapters && selectedNarrative.chapters[chapterId]) {
+              const chapterDetails = selectedNarrative.chapters[chapterId];
+              console.log('Chapter Details:', JSON.stringify(chapterDetails, null, 2));
+              console.log('Chapter Center:', chapterDetails.center);
+              console.log('Chapter Zoom:', chapterDetails.zoom);
+              console.log('Chapter Maps:', chapterDetails.maps);
+            }
+            
+            onActiveChapterChange(chapterId);
+          }
+        }
       },
-      { root: narrativeRef.current, threshold: 1 }
+      { 
+        root: narrativeRef.current, 
+        threshold: 0.6
+      }
     );
 
-    if (narrativeRef.current) {
-      narrativeRef.current.querySelectorAll('section').forEach((sec) => obs.observe(sec));
-    }
+    sections.forEach((sec) => obs.observe(sec));
+
     return () => {
-      if (narrativeRef.current) {
-        narrativeRef.current.querySelectorAll('section').forEach((sec) => obs.unobserve(sec));
-      }
+      sections.forEach((sec) => obs.unobserve(sec));
+      currentActiveId = null;
     };
   }, [selectedNarrative, onActiveChapterChange]);
 

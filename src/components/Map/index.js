@@ -31,6 +31,7 @@ export default function Map({
   onUpdateOpacity,
   onFlyToLocation,
   onMapViewChange,
+  isMapLoading,
 }) {
   const mapContainer = useRef(null);
   const map = useRef(null);
@@ -468,6 +469,16 @@ export default function Map({
       )}
 
       <div ref={mapContainer} className={styles.map} />
+      
+      {/* Loading Spinner Overlay - only for maps/plans selection, not narratives */}
+      {isMapLoading && !selectedNarrative && (
+        <div className={styles.loadingOverlay}>
+          <div className={styles.spinnerContainer}>
+            <div className={styles.spinner}></div>
+            <div className={styles.loadingText}>Loading maps...</div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
