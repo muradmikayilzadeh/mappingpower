@@ -16,6 +16,7 @@ const CreateEraPage = () => {
   const [selectedMaps, setSelectedMaps] = useState([]);
   const [selectedMapGroups, setSelectedMapGroups] = useState([]);
   const [indented, setIndented] = useState([]);
+  const [isPublic, setIsPublic] = useState(true);
   const [mapSearchTerm, setMapSearchTerm] = useState('');
   const [mapGroupSearchTerm, setMapGroupSearchTerm] = useState('');
   const navigate = useNavigate();
@@ -52,6 +53,7 @@ const CreateEraPage = () => {
           setSelectedMaps(data.maps || []);
           setSelectedMapGroups(data.map_groups || []);
           setIndented(data.indented || []);
+          setIsPublic(Object.prototype.hasOwnProperty.call(data, 'public') ? !!data.public : true);
         }
       }
       setLoading(false);
@@ -69,7 +71,8 @@ const CreateEraPage = () => {
       description: html,
       maps: selectedMaps,
       map_groups: selectedMapGroups,
-      indented
+      indented,
+      public: isPublic,
     };
 
     try {
@@ -180,6 +183,25 @@ const CreateEraPage = () => {
 
               <label htmlFor="description">Description</label>
               <Editor className={styles.richTextEditor} value={html} onChange={handleHtmlChange} />
+
+              <br /><br />
+
+              <div style={{ padding: '16px', backgroundColor: '#f8f9fa', borderRadius: '6px', border: '1px solid #e9ecef' }}>
+                <label htmlFor="isPublic" style={{ display: 'flex', alignItems: 'center', cursor: 'pointer' }}>
+                  <input
+                    type="checkbox"
+                    name="isPublic"
+                    id="isPublic"
+                    checked={isPublic}
+                    onChange={(e) => setIsPublic(e.target.checked)}
+                    style={{ marginRight: '8px', width: '18px', height: '18px', cursor: 'pointer' }}
+                  />
+                  <span style={{ fontSize: '14px', fontWeight: '500' }}>Visible on website</span>
+                </label>
+                <small style={{ display: 'block', marginLeft: '26px', marginTop: '4px', color: '#666', fontSize: '12px' }}>
+                  (uncheck to hide this era from the main map view)
+                </small>
+              </div>
 
               <br /><br />
 

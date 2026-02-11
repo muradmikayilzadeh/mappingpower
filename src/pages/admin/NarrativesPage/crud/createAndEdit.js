@@ -279,25 +279,12 @@ const CreateNarrativePage = () => {
         </ul>
       </div>
 
-      <div className={styles.content}>
+      <div className={styles.content} style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
         <div className={styles.headBar}>
           <h1>{id ? 'Edit Narrative' : 'Create Narrative'}</h1>
-          <div>
-            <button 
-              type="button" 
-              onClick={(e) => {
-                e.preventDefault();
-                handleFormSubmit(e);
-              }} 
-              style={{ marginRight: '10px' }}
-            >
-              {id ? 'Update' : 'Save'}
-            </button>
-            <button onClick={() => navigate('/narratives')}>Back</button>
-          </div>
         </div>
 
-        <div className={styles.formContainer}>
+        <div className={styles.formContainer} style={{ flex: 1, overflowY: 'auto' }}>
           <form onSubmit={handleFormSubmit}>
             <div className={styles.formGroup}>
               <div style={{ marginBottom: '24px' }}>
@@ -543,6 +530,15 @@ const CreateNarrativePage = () => {
               </div>
             </div>
           </form>
+        </div>
+
+        <div className={styles.formFooter}>
+          <button type="button" onClick={(e) => { e.preventDefault(); handleFormSubmit(e); }}>
+            {id ? 'Update' : 'Save'}
+          </button>
+          <button type="button" onClick={() => navigate('/narratives')}>
+            Back
+          </button>
         </div>
       </div>
     </div>

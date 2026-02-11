@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faHome, faMap, faBook, faCog, faEdit, faTimes, faTimeline, faArrowUp, faArrowDown } from '@fortawesome/free-solid-svg-icons';
+import { faHome, faMap, faBook, faCog, faEdit, faTimes, faTimeline, faArrowUp, faArrowDown, faEye, faEyeSlash } from '@fortawesome/free-solid-svg-icons';
 import { db } from '../../../firebase';
 import { collection, getDocs, deleteDoc, doc, updateDoc } from 'firebase/firestore';
 import styles from './style.module.css';
@@ -15,10 +15,14 @@ const ErasPage = () => {
   useEffect(() => {
     const fetchEras = async () => {
       const querySnapshot = await getDocs(collection(db, 'eras'));
-      const erasData = querySnapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      }));
+      const erasData = querySnapshot.docs.map(doc => {
+        const data = doc.data();
+        return {
+          id: doc.id,
+          ...data,
+          public: Object.prototype.hasOwnProperty.call(data, 'public') ? !!data.public : true,
+        };
+      });
       const sortedEras = erasData.sort((a, b) => a.order - b.order); // Sort by the 'order' field
       setEras(sortedEras);
       setFilteredEras(sortedEras);
@@ -33,6 +37,22 @@ const ErasPage = () => {
     );
     setFilteredEras(results);
   }, [searchTerm, eras]);
+
+  const handleTogglePublic = async (id) => {
+    const current = eras.find((e) => e.id === id);
+    if (!current) return;
+    const newValue = !current.public;
+    setEras((prev) => prev.map((e) => (e.id === id ? { ...e, public: newValue } : e)));
+    setFilteredEras((prev) => prev.map((e) => (e.id === id ? { ...e, public: newValue } : e)));
+    try {
+      await updateDoc(doc(db, 'eras', id), { public: newValue });
+    } catch (err) {
+      console.error('Failed to update visibility:', err);
+      setEras((prev) => prev.map((e) => (e.id === id ? { ...e, public: !newValue } : e)));
+      setFilteredEras((prev) => prev.map((e) => (e.id === id ? { ...e, public: !newValue } : e)));
+      alert('Could not update visibility. Please try again.');
+    }
+  };
 
   const handleDelete = async (id) => {
     const confirmDelete = window.confirm('Are you sure you want to delete this era?');
@@ -196,12 +216,30 @@ const ErasPage = () => {
                     </button>
                   </div>
                   <div className={styles.itemDetails}>
-                    <h2>{era.title}</h2>
+                    <h2>
+                      {era.title}{' '}
+                      <span
+                        title={era.public ? 'Publicly visible' : 'Private (hidden)'}
+                        style={{
+                          fontSize: 12,
+                          padding: '2px 8px',
+                          borderRadius: 999,
+                          marginLeft: 8,
+                          border: '1px solid',
+                          borderColor: era.public ? '#1f8b4c' : '#b54747',
+                          color: era.public ? '#1f8b4c' : '#b54747',
+                          background: era.public ? 'rgba(31,139,76,0.08)' : 'rgba(181,71,71,0.08)',
+                        }}
+                      >
+                        {era.public ? 'Public' : 'Private'}
+                      </span>
+                    </h2>
                     <p dangerouslySetInnerHTML={{ __html: era.description }} />
                   </div>
                   <div className={styles.itemActions}>
-                    <button onClick={() => navigate(`/edit-era/${era.id}`)}><FontAwesomeIcon icon={faEdit} /></button>
-                    <button onClick={() => handleDelete(era.id)}><FontAwesomeIcon icon={faTimes} /></button>
+                    <button onClick={() => navigate(`/edit-era/${era.id}`)} title="Edit"><FontAwesomeIcon icon={faEdit} /></button>
+                    <button onClick={() => handleTogglePublic(era.id)} title={era.public ? 'Make Private' : 'Make Public'}><FontAwesomeIcon icon={era.public ? faEye : faEyeSlash} /></button>
+                    <button onClick={() => handleDelete(era.id)} title="Delete"><FontAwesomeIcon icon={faTimes} /></button>
                   </div>
                 </div>
               );

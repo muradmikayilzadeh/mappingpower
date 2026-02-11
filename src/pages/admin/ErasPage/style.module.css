@@ -113,6 +113,11 @@
 .searchBar {
   display: flex;
   margin-bottom: 20px;
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  background-color: #f4f4f4;
+  padding-top: 8px;
 }
 
 .searchBar input {

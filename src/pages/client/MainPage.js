@@ -46,17 +46,7 @@ const MainPage = () => {
   };
 
   const handleMapSelect = (maps) => {
-    // Set loading state when maps are being selected
-    if (maps && maps.length > 0) {
-      setIsMapLoading(true);
-      // Set maps first, then clear loading after a delay to allow rendering
-      setSelectedMaps(maps);
-      setTimeout(() => setIsMapLoading(false), 400);
-    } else {
-      // Clear maps immediately if no maps selected
-      setSelectedMaps([]);
-      setIsMapLoading(false);
-    }
+    setSelectedMaps(maps || []);
   };
 
   const handleOpacityChange = (mapId, opacity) => {
@@ -250,21 +240,27 @@ const MainPage = () => {
   }, [selectedNarrative]);
 
   // Track loading state when maps are selected/deselected (only for controller maps, not narratives)
+  const prevMapIdsRef = useRef(null);
   useEffect(() => {
-    // Only show loading for maps selected through controller, not narratives
     if (selectedNarrative) {
       setIsMapLoading(false);
+      prevMapIdsRef.current = null;
       return;
     }
 
-    // Show loading when maps change (when user selects/deselects maps in controller)
-    if (selectedMaps && selectedMaps.length > 0) {
-      setIsMapLoading(true);
-      // Clear loading after a delay to allow map rendering
-      const timer = setTimeout(() => setIsMapLoading(false), 500);
-      return () => clearTimeout(timer);
-    } else {
-      setIsMapLoading(false);
+    const newIds = (selectedMaps || []).map((m) => m.id).sort().join(',');
+    const prevIds = prevMapIdsRef.current;
+
+    // Only show loading when the set of map IDs changes (check/uncheck), not on opacity slider changes
+    if (newIds !== prevIds) {
+      prevMapIdsRef.current = newIds;
+      if (selectedMaps && selectedMaps.length > 0) {
+        setIsMapLoading(true);
+        const timer = setTimeout(() => setIsMapLoading(false), 400);
+        return () => clearTimeout(timer);
+      } else {
+        setIsMapLoading(false);
+      }
     }
   }, [selectedMaps, selectedNarrative]);
 

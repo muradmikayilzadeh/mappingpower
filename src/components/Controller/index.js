@@ -5,6 +5,7 @@ import { faInfo, faMap } from '@fortawesome/free-solid-svg-icons';
 import { db } from '../../firebase';
 import styles from './style.module.css';
 import MiniMap from '../MiniMap';
+import * as maptilersdk from '@maptiler/sdk';
 
 function Controller({
   onMapSelect,
@@ -34,11 +35,11 @@ function Controller({
   const narrativeRef = useRef(null);
 
   const handleFlyToLocation = (mapDetails) => {
-    if (!flyToLocation) return;
+    if (!flyToLocation || !mapDetails) return;
 
-    if (mapDetails.center && Array.isArray(mapDetails.center) && mapDetails.center.length === 2) {
-      flyToLocation(mapDetails.center);
-    } else if (
+    // Prefer using the full image bounds so the zoom level always matches
+    // the extents shown in the entry preview.
+    if (
       mapDetails.image_bounds_coords &&
       Array.isArray(mapDetails.image_bounds_coords) &&
       mapDetails.image_bounds_coords.length === 4
@@ -46,24 +47,47 @@ function Controller({
       const numericBounds = mapDetails.image_bounds_coords.map((coord) =>
         coord.split(',').map(Number)
       );
-      let totalLng = 0, totalLat = 0;
-      numericBounds.forEach(([lng, lat]) => {
-        totalLng += lng;
-        totalLat += lat;
+
+      // Compute overall bounding box (sw / ne) from the four corner points.
+      const lngs = numericBounds.map(([lng]) => lng);
+      const lats = numericBounds.map(([, lat]) => lat);
+
+      const sw = [Math.min(...lngs), Math.min(...lats)];
+      const ne = [Math.max(...lngs), Math.max(...lats)];
+
+      // Use the geometric center as the nominal center; Map component
+      // will apply asymmetric padding so the visible center is shifted
+      // slightly to the right of the frame (to account for the left bar).
+      const center = [
+        (sw[0] + ne[0]) / 2,
+        (sw[1] + ne[1]) / 2,
+      ];
+
+      flyToLocation(center, {
+        bounds: [sw, ne],
       });
-      flyToLocation([totalLng / numericBounds.length, totalLat / numericBounds.length]);
-    } else {
-      console.error("No 'center' property or bounding coords found for this map. Cannot fly.");
+      return;
     }
+
+    // Fallback: use explicit center if we have one.
+    if (mapDetails.center && Array.isArray(mapDetails.center) && mapDetails.center.length === 2) {
+      flyToLocation(mapDetails.center);
+      return;
+    }
+
+    console.error("No 'center' property or bounding coords found for this map. Cannot fly.");
   };
 
   useEffect(() => {
     const fetchChaptersAndNarratives = async () => {
       try {
         const erasSnap = await getDocs(collection(db, 'eras'));
-        const eras = erasSnap.docs
+        const allEras = erasSnap.docs
           .map((d) => ({ id: d.id, ...d.data() }))
           .sort((a, b) => a.order - b.order);
+        const eras = allEras.filter((e) =>
+          Object.prototype.hasOwnProperty.call(e, 'public') ? !!e.public : true
+        );
 
         const mapsCol = collection(db, 'maps');
         const groupsCol = collection(db, 'map_groups');
@@ -433,7 +457,15 @@ function Controller({
           </div>
           <div className={styles.miniMap}>
             {mapView ? (
-              <MiniMap center={mapView.center} mapStyle={mapStyle} fixedZoom={10} />
+              <MiniMap
+                center={mapView.center}
+                // Use a darker, high-contrast basemap so the thumbnail
+                // clearly stands apart from the main map.
+                mapStyle={maptilersdk.MapStyle.DATAVIZ.DARK}
+                // Keep a consistently zoomed-out overview, independent
+                // of the main map zoom level.
+                fixedZoom={9}
+              />
             ) : (
               <div style={{ width: '100%', height: '100%', backgroundColor: '#e0e0e0', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                 <span style={{ color: '#999' }}>Loading map...</span>
@@ -574,11 +606,11 @@ function Controller({
           onKeyDown={onNarrativeKeyDown}
         >
           <button
+            className={styles.backButtonPinned}
             onClick={() => {
               setSelectedNarrative(null);
               onNarrativeSelect(null);
             }}
-            className={styles.backButton}
             style={{
               marginBottom: '1rem',
               padding: '0.5rem 1rem',

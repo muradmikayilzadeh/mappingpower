@@ -68,9 +68,49 @@ export default function Map({
     if (onUpdateOpacity) onUpdateOpacity(() => updateOpacity);
   }, [onUpdateOpacity]);
 
-  const flyToLocation = ([lng, lat], zoomLevel = 14) => {
-    if (!map.current) return;
-    map.current.flyTo({ center: [lng, lat], zoom: zoomLevel, essential: true });
+  /**
+   * Programmatically adjust the main map view.
+   *
+   * Usage patterns:
+   * - flyToLocation([lng, lat], zoomLevel:number) -> simple flyTo
+   * - flyToLocation([lng, lat], { bounds: [[swLng, swLat], [neLng, neLat]], padding }) -> fit map to bounds
+   */
+  const flyToLocation = (target, zoomOrOptions) => {
+    if (!map.current || !target) return;
+
+    // Bounds-based zoom (preferred for "zoom to map" behavior)
+    if (zoomOrOptions && typeof zoomOrOptions === 'object' && zoomOrOptions.bounds) {
+      const { bounds, padding } = zoomOrOptions;
+
+      try {
+        map.current.fitBounds(bounds, {
+          // Give extra padding on the left to visually center the map
+          // to the right of the screen where the left sidebar sits.
+          padding:
+            padding || {
+              top: 40,
+              bottom: 40,
+              left: 260,
+              right: 40,
+            },
+          essential: true,
+        });
+        return;
+      } catch (e) {
+        console.error('Error fitting bounds, falling back to flyTo:', e);
+      }
+    }
+
+    // Simple center/zoom behavior
+    if (Array.isArray(target) && target.length === 2) {
+      const [lng, lat] = target;
+      const zoomLevel =
+        typeof zoomOrOptions === 'number' && !Number.isNaN(zoomOrOptions)
+          ? zoomOrOptions
+          : 14;
+
+      map.current.flyTo({ center: [lng, lat], zoom: zoomLevel, essential: true });
+    }
   };
   useEffect(() => {
     if (onFlyToLocation) onFlyToLocation(() => flyToLocation);

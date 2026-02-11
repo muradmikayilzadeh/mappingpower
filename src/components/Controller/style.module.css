@@ -77,6 +77,15 @@
     overflow: auto;
     min-height: 400px;
     max-height: 600px;
+    position: relative;
+}
+
+.backButtonPinned {
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    background: rgb(239, 239, 239);
+    padding-bottom: 0.75rem;
 }
 
 .controller .chapterList{
