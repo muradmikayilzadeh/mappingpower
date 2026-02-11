@@ -88,6 +88,34 @@
     padding-bottom: 0.75rem;
 }
 
+/* Narrative "carousel" styling */
+.narrativeContent {
+    scroll-snap-type: y mandatory;
+}
+
+.chapterSection {
+    scroll-snap-align: start;
+    /* Make each chapter effectively a "slide" that fills
+       most of the narrative viewport so only one shows at a time */
+    min-height: calc(100% - 3rem);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 1.5rem 1.25rem;
+    border-bottom: 1px solid #d0d0d0;
+}
+
+.chapterSection:last-of-type {
+    border-bottom: none;
+}
+
+.chapterSection p {
+    max-width: 42rem;
+    margin: 0 auto;
+    line-height: 1.6;
+    font-size: 0.95rem;
+}
+
 .controller .chapterList{
     display: flex;
     flex-direction: column;

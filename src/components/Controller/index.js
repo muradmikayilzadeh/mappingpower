@@ -600,7 +600,7 @@ function Controller({
 
       {view === 'narratives' && selectedNarrative && (
         <div
-          className={styles.sectionContent}
+          className={`${styles.sectionContent} ${styles.narrativeContent}`}
           ref={narrativeRef}
           onClick={onNarrativeClick}
           onKeyDown={onNarrativeKeyDown}
